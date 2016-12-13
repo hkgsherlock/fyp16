@@ -8,7 +8,7 @@ import numpy as np
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-v", "--video", help="path to the video file")
-ap.add_argument("-a", "--min-area", type=int, default=1000, help="minimum area size")
+ap.add_argument("-a", "--min-area", type=int, default=200, help="minimum area size")
 args = vars(ap.parse_args())
 
 if args.get("video", None) is None:
@@ -52,21 +52,25 @@ while True:
     thresh = cv2.threshold(frameDelta, 30, 255, cv2.THRESH_BINARY)[1]
     thresh = cv2.dilate(thresh, None, iterations=2)
 
-    sobelX = cv2.Sobel(thresh, cv2.CV_64F, 1, 0)
-    sobelY = cv2.Sobel(thresh, cv2.CV_64F, 0, 1)
-    sobelX = np.uint8(np.absolute(sobelX))
-    sobelY = np.uint8(np.absolute(sobelY))
+    # sobelX = cv2.Sobel(thresh, cv2.CV_64F, 1, 0)
+    # sobelY = cv2.Sobel(thresh, cv2.CV_64F, 0, 1)
+    # sobelX = np.uint8(np.absolute(sobelX))
+    # sobelY = np.uint8(np.absolute(sobelY))
+    #
+    # sobelCombined = cv2.bitwise_or(sobelX, sobelY)
 
-    sobelCombined = cv2.bitwise_or(sobelX, sobelY)
+    # for boundingboxes that are kind of overlapping, combine
+    strEl = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, strEl)
 
     # v-- python2
     # (cnts, _) = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     # python 3
-    (_, cnts, _) = cv2.findContours(sobelCombined.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
 
     # for those contours create bounding boxes (basic)
     boundingBoxes = []
-    bbMargin = 50
+    bbMargin = 20
 
     for c in cnts:
         if cv2.contourArea(c) < args["min_area"]:
@@ -79,11 +83,12 @@ while True:
         y -= bbMargin
         boundingBoxes.append([x, y, xw, yh])
         cv2.rectangle(frame, (x, y), (xw, yh), (0, 0, 255), 2)
-        text = "Occupied"
+        text = "Has movement"
         lastSeenOccupied = time.time()
 
     # conqeur overlapped bounding boxes with non-maxima suppression
-    boundingBoxesNew = non_max_suppression(np.array(boundingBoxes), probs=None, overlapThresh=0.1)
+    boundingBoxesNew = non_max_suppression(np.array(boundingBoxes))
+
     for (x1, y1, x2, y2) in boundingBoxesNew:
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
@@ -112,7 +117,7 @@ while True:
     cv2.imshow("main", frame)
     cv2.imshow("Thresh", thresh)
     cv2.imshow("Frame Delta", frameDelta)
-    cv2.imshow("Sobel X+Y", sobelCombined)
+    # cv2.imshow("Sobel X+Y", sobelCombined)
     # print("elapsed: {}".format(time.time() - tFrameInit))
     # print("1/fps = {}".format(1/fps))
     waitMs = int((1 / fps - (time.time() - tFrameInit)) * 1000)
