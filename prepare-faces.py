@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Software License Agreement (BSD License)
 #
 # Copyright (c) 2012, Philipp Wagner
@@ -90,13 +89,12 @@ def CropFace(image, eye_left=(0, 0), eye_right=(0, 0), offset_pct=(0.2, 0.2), de
     image = image.resize(dest_sz, Image.ANTIALIAS)
     return image
 
-def detectEyes(path):
-    eyes = []
 
+def detectFaceThenEyes(path, faceCascade, eyeCascade, glassesCascade):
     image = cv2.imread(path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    face, _ = face_cascade.detectMultiScale(
+    face, _ = faceCascade.detectMultiScale(
         image,
         scaleFactor=1.1,
         minNeighbors=5,
@@ -111,7 +109,7 @@ def detectEyes(path):
     x2 = face[2]
     y2 = face[3]
 
-    eyes, _ = eye_cascade.detectMultiScale(
+    eyes, _ = eyeCascade.detectMultiScale(
         image[x1:y1, x2:y2],
         scaleFactor=1.1,
         minNeighbors=2,
@@ -124,7 +122,7 @@ def detectEyes(path):
         for (xA, yA, xB, yB) in eyes:
             eyes.append([x1 + int(xA + xB / 2.0), y1 + int(yA + yB / 2.0)])
     else:
-        glass, _ = glasses_cascade.detectMultiScale(
+        glass, _ = glassesCascade.detectMultiScale(
             image[x1:y1, x2:y2],
             scaleFactor=1.1,
             minNeighbors=2,
@@ -140,21 +138,28 @@ def detectEyes(path):
 
     return eyes
 
-ap = argparse.ArgumentParser()
-ap.add_argument('imgPath', metavar='img', nargs='+', help='path of the image(s) to be processed')
-ap.add_argument("-o", "--offset", type=int, default=0.2, help="percent of the image you want to keep next to the eyes")
-ap.add_argument("-s", "--size", type=int, default=200, help="width and height of the output image")
-args = vars(ap.parse_args())
 
-face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
-glasses_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml')
-eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
+def main(args):
+    ap = argparse.ArgumentParser()
+    ap.add_argument('imgPath', metavar='img', nargs='+', help='path of the image(s) to be processed')
+    ap.add_argument("-o", "--offset", type=int, default=0.2, help="percent of the image you want to keep next to the eyes")
+    ap.add_argument("-s", "--size", type=int, default=200, help="width and height of the output image")
+    args = vars(ap.parse_args())
 
-for path in args['imgPath']:
-    leftEye, rightEye = detectEyes(path)
+    face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
+    glasses_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml')
+    eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
 
-    image = Image.open(path).convert('L')
+    for path in args['imgPath']:
+        leftEye, rightEye = detectFaceThenEyes(path, face_cascade, eye_cascade, glasses_cascade)
 
-    offset = args['offset']
-    size = args['size']
-    cropped = CropFace(image, eye_left=leftEye, eye_right=rightEye, offset_pct=(offset, offset), dest_sz=(size, size))
+        image = Image.open(path).convert('L')
+
+        offset = args['offset']
+        size = args['size']
+        cropped = CropFace(image, eye_left=leftEye, eye_right=rightEye, offset_pct=(offset, offset), dest_sz=(size, size))
+
+        cropped.save('_crop.'.join(path.rsplit('.', 1))) # http://stackoverflow.com/q/2556108/2388501
+
+if __name__ == '__main__':
+    main(sys.argv)

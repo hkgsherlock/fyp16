@@ -5,19 +5,49 @@ import time
 import cv2
 from imutils.object_detection import non_max_suppression
 import numpy as np
+from PIL import Image
+import os
 
-face_cascade = cv2.CascadeClassifier('lbpcascade_frontalface.xml')
+
+def get_images_and_labels(path):
+    images = []
+    labels = []
+
+    for dir in [o for o in os.listdir(path) if os.path.isdir(os.path.join(path, o))]:
+        for image_fname in os.path.join(path, dir):
+            image_path = os.path.join(path, dir, image_fname)
+            image_pil = Image.open(image_path).convert('L')
+            image = np.array(image_pil, 'uint8')
+            nbr = int(os.path.split(image_path)[1].split(".")[0].replace("subject", ""))
+            images.append(image[y: y + h, x: x + w])
+            labels.append(nbr)
+    # return the images list and labels list
+    return images, labels
+
+
+def prepare_faceRecognizer():
+    _model = cv2.face.createLBPHFaceRecognizer()
+    images, labels = get_images_and_labels('./face')
+    # _model.train
+    return _model
+
+
+def detect_face(frame):
+    (rects, weights) = face_cascade.detectMultiScale(frame, 1.3, 5)
+    rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
+    for (xA, yA, xB, yB) in rects:
+        imgFace = frame[xA:yA, xB:yB]
+        # TODO: what to do after you found a face?
+
 
 lastFrame = None
 outVideoWriter = None
 lastSeenOccupied = 0.0
 
-def detect_face(frame):
-    rects, weights = face_cascade.detectMultiScale(frame, 1.3, 5)
-    rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
-    for (xA, yA, xB, yB) in rects:
-        imgFace = frame[xA:yA, xB:yB]
-        # TODO: what to do after you found a face?
+# get the HOG Descriptor for image recognition
+hog = cv2.HOGDescriptor()
+face_cascade = cv2.CascadeClassifier('lbpcascade_frontalface.xml')
+recognizer = prepare_faceRecognizer()
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-v", "--video", help="path to the video file")
@@ -34,9 +64,6 @@ else:
     fps = float(camera.get(cv2.CAP_PROP_FPS))
 
 print("FPS: {}".format(fps))
-
-# get the HOG Descriptor for image recognition
-hog = cv2.HOGDescriptor()
 
 while True:
     tFrameInit = time.time()
@@ -56,6 +83,7 @@ while True:
     rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
     rects = non_max_suppression(rects, probs=None, overlapThresh=0.65)
 
+    # for every people detected in the frame blob, find the (only) face and check who they are
     for (xA, yA, xB, yB) in rects:
         cv2.rectangle(frame,
                       (int(xA * 2.1875), int(yA * 2.1875)),
@@ -63,8 +91,10 @@ while True:
                       (0, 255, 0), 2)
         detect_face(frame[xA:yA, xB:yB])
 
+    # show the result of the detection and recognition
     cv2.imshow("main", frame)
 
+    # codes to wait to stay the image as 30fps
     waitMs = int((1 / fps - (time.time() - tFrameInit)) * 1000)
     if waitMs < 1:
         waitMs = 1
