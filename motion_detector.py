@@ -52,13 +52,6 @@ while True:
     thresh = cv2.threshold(frameDelta, 30, 255, cv2.THRESH_BINARY)[1]
     thresh = cv2.dilate(thresh, None, iterations=2)
 
-    # sobelX = cv2.Sobel(thresh, cv2.CV_64F, 1, 0)
-    # sobelY = cv2.Sobel(thresh, cv2.CV_64F, 0, 1)
-    # sobelX = np.uint8(np.absolute(sobelX))
-    # sobelY = np.uint8(np.absolute(sobelY))
-    #
-    # sobelCombined = cv2.bitwise_or(sobelX, sobelY)
-
     # for boundingboxes that are kind of overlapping, combine
     strEl = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, strEl)
@@ -89,6 +82,7 @@ while True:
     # conqeur overlapped bounding boxes with non-maxima suppression
     boundingBoxesNew = non_max_suppression(np.array(boundingBoxes))
 
+    # TODO: moving this into ped_detect.py  vvvvvv----------
     for (x1, y1, x2, y2) in boundingBoxesNew:
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 

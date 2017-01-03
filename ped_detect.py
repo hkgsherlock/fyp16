@@ -63,7 +63,7 @@ else:
     camera = cv2.VideoCapture(args["video"])
     fps = float(camera.get(cv2.CAP_PROP_FPS))
 
-print("FPS: {}".format(fps))
+# print("FPS: {}".format(fps))
 
 while True:
     tFrameInit = time.time()
@@ -71,6 +71,7 @@ while True:
     frame = cv2.resize(frame, (560, 315))
     frameGray = cv2.cvtColor(cv2.resize(frame.copy(), (256, 144)), cv2.COLOR_BGR2GRAY)
 
+    # TODO: move get people rects into new function
     # get the default people detector
     hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
 
