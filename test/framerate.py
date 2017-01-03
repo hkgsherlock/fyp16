@@ -10,13 +10,13 @@ video = None
 
 # Start default camera
 if args.get("video", None) is None:
-    video = cv2.VideoCapture(0);
+    video = cv2.VideoCapture(0)
     time.sleep(0.25)
 else:
     video = cv2.VideoCapture(args["video"])
  
 # Find OpenCV version
-(major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
+(major_ver, minor_ver, subminor_ver) = cv2.__version__.split('.')
  
 # With webcam get(CV_CAP_PROP_FPS) does not work.
 # Let's see for ourselves.
