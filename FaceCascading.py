@@ -37,4 +37,4 @@ def detect_face(frame):
     return [frame[xA:yA, xB:yB] for (xA, yA, xB, yB) in rects]
     # for (xA, yA, xB, yB) in rects:
     #     imgFace = frame[xA:yA, xB:yB]
-    # TODO: what to do after you found a face?
+    # TODO: what to do after you found a face? write on camera.py
