@@ -1,12 +1,11 @@
 import argparse
-import datetime
-import imutils
+import os
 import time
+
 import cv2
-from imutils.object_detection import non_max_suppression
 import numpy as np
 from PIL import Image
-import os
+from imutils.object_detection import non_max_suppression
 
 
 def get_images_and_labels(path):
@@ -19,7 +18,7 @@ def get_images_and_labels(path):
             image_pil = Image.open(image_path).convert('L')
             image = np.array(image_pil, 'uint8')
             nbr = int(os.path.split(image_path)[1].split(".")[0].replace("subject", ""))
-            images.append(image[y: y + h, x: x + w])
+            images.append(image)
             labels.append(nbr)
     # return the images list and labels list
     return images, labels

@@ -6,6 +6,8 @@ import cv2
 from imutils.object_detection import non_max_suppression
 import numpy as np
 
+# ## DEPRECATED ## #
+
 ap = argparse.ArgumentParser()
 ap.add_argument("-v", "--video", help="path to the video file")
 ap.add_argument("-a", "--min-area", type=int, default=200, help="minimum area size")

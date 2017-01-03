@@ -39,6 +39,9 @@ import cv2
 
 
 class FacePreparation:
+    def __init__(self):
+        pass
+
     def Distance(self, p1, p2):
         dx = p2[0] - p1[0]
         dy = p2[1] - p1[1]
