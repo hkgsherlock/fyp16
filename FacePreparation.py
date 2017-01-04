@@ -37,6 +37,10 @@ from PIL import Image
 import argparse
 import cv2
 
+face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
+glasses_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml')
+eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
+
 
 def Distance(p1, p2):
     dx = p2[0] - p1[0]
@@ -118,9 +122,12 @@ def detectFaceThenEyes(path, faceCascade, eyeCascade, glassesCascade):
     )
     eyes = np.array([[x, y, x + w, y + h] for (x, y, w, h) in eyes])
 
+    eyeLeft = None
+    eyeRight = None
+
     if eyes.size == 2:
         for (xA, yA, xB, yB) in eyes:
-            eyes.append([x1 + int(xA + xB / 2.0), y1 + int(yA + yB / 2.0)])
+            eyeLeft = [x1 + int(xA + xB / 2.0), y1 + int(yA + yB / 2.0)]
     else:
         glass, _ = glassesCascade.detectMultiScale(
             image[x1:y1, x2:y2],
@@ -131,12 +138,14 @@ def detectFaceThenEyes(path, faceCascade, eyeCascade, glassesCascade):
         if glass.size != 2:
             exit()
         for (xA, yA, xB, yB) in glass:
-            eyes.append([x1 + int(xA + xB / 2.0), y1 + int(yA + yB / 2.0)])
+            eyeRight = [x1 + int(xA + xB / 2.0), y1 + int(yA + yB / 2.0)]
 
-    if eyes[0][0] > eyes[1][0]:
-        eyes = list(reversed(eyes))
+    if eyeLeft[0] > eyeRight[0]:
+        swap = eyeLeft
+        eyeLeft = eyeRight
+        eyeRight = swap
 
-    return eyes
+    return eyeLeft, eyeRight
 
 
 def run():
@@ -147,19 +156,15 @@ def run():
     ap.add_argument("-s", "--size", type=int, default=200, help="width and height of the output image")
     args = vars(ap.parse_args())
 
-    face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
-    glasses_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml')
-    eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
-
     for path in args['imgPath']:
-        leftEye, rightEye = detectFaceThenEyes(path, face_cascade, eye_cascade, glasses_cascade)
+        eyeLeft, eyeRight = detectFaceThenEyes(path, face_cascade, eye_cascade, glasses_cascade)
 
         image = Image.open(path).convert('L')
 
         offset = args['offset']
         size = args['size']
-        cropped = CropFace(image, eye_left=leftEye, eye_right=rightEye, offset_pct=(offset, offset),
-                                dest_sz=(size, size))
+        cropped = CropFace(image, eye_left=eyeLeft, eye_right=eyeRight, offset_pct=(offset, offset),
+                           dest_sz=(size, size))
 
         cropped.save('_crop.'.join(path.rsplit('.', 1)))  # http://stackoverflow.com/q/2556108/2388501
 

@@ -4,7 +4,6 @@ from imutils.object_detection import non_max_suppression
 
 
 class MotionDetection(object):
-
     def __init__(self, thresholdLow=30, thresholdHigh=255, minAreaSize=200, boundingBoxPadding=20):
         self.thresholdLow = thresholdLow
         self.thresholdHigh = thresholdHigh
