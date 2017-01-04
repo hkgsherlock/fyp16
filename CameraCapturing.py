@@ -32,8 +32,8 @@ class CameraCapturing:
             time.sleep(0.25)
             fps = 30.0
         elif self.usePiCam:
-            picam = PiVideoStream(resolution=self.resolution, framerate=self.framerate).start()
-            # TODO: complete raspi capture using `from imutils.video import VideoStream`
+            picam = PiVideoStream(resolution=self.resolution, framerate=self.framerate)
+            picam.start()
         else:
             cam = cv2.VideoCapture(self.video)
             fps = float(cam.get(cv2.CAP_PROP_FPS))

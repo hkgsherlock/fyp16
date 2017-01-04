@@ -11,15 +11,16 @@ def get_images_and_labels(path):
     images = []
     labels = []
 
+    # ./face/{name}/{ok_code}.*
     for dir in [o for o in os.listdir(path) if os.path.isdir(os.path.join(path, o))]:
         for image_fname in os.path.join(path, dir):
+            if not image_fname.startswith("ok_"):
+                continue
             image_path = os.path.join(path, dir, image_fname)
             image_pil = Image.open(image_path).convert('L')
             image = np.array(image_pil, 'uint8')
-            # TODO: what is naming format? to put into `labels`
-            nbr = int(os.path.split(image_path)[1].split(".")[0].replace("subject", ""))
             images.append(image)
-            labels.append(nbr)
+            labels.append(dir)
     # return the images list and labels list
     return images, labels
 

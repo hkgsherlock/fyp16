@@ -150,6 +150,7 @@ def detectFaceThenEyes(path, faceCascade, eyeCascade, glassesCascade):
 
 def run():
     ap = argparse.ArgumentParser()
+    # TODO: group arguments for batch job on folder "./face/{name}/ok_{code}.*"
     ap.add_argument('imgPath', metavar='img', nargs='+', help='path of the image(s) to be processed')
     ap.add_argument("-o", "--offset", type=int, default=0.2,
                     help="percent of the image you want to keep next to the eyes")
@@ -166,8 +167,7 @@ def run():
         cropped = CropFace(image, eye_left=eyeLeft, eye_right=eyeRight, offset_pct=(offset, offset),
                            dest_sz=(size, size))
 
-        cropped.save('_crop.'.join(path.rsplit('.', 1)))  # http://stackoverflow.com/q/2556108/2388501
-
+        cropped.save('ok_{}'.format(path))  # http://stackoverflow.com/q/2556108/2388501
 
 if __name__ == '__main__':
     run()
