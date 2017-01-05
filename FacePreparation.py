@@ -151,23 +151,36 @@ def detectFaceThenEyes(path, faceCascade, eyeCascade, glassesCascade):
 def run():
     ap = argparse.ArgumentParser()
     # TODO: group arguments for batch job on folder "./face/{name}/ok_{code}.*"
-    ap.add_argument('imgPath', metavar='img', nargs='+', help='path of the image(s) to be processed')
+    gp = ap.add_mutually_exclusive_group()
+    gp.add_argument("-b", "--batch", metavar='BATCH_PATH',
+                    help='path of the batch job folder to be processed\n'
+                         'for example:"./face/{name}/ok_{code}.*"')
+    gp.add_argument("-i", "--image", metavar='img', nargs='+', help='path of the image(s) to be processed')
     ap.add_argument("-o", "--offset", type=int, default=0.2,
                     help="percent of the image you want to keep next to the eyes")
     ap.add_argument("-s", "--size", type=int, default=200, help="width and height of the output image")
     args = vars(ap.parse_args())
 
-    for path in args['imgPath']:
-        eyeLeft, eyeRight = detectFaceThenEyes(path, face_cascade, eye_cascade, glasses_cascade)
+    print(args)
 
-        image = Image.open(path).convert('L')
+    if args['image'] is not None:
+        for path in args['image']:
+            eyeLeft, eyeRight = detectFaceThenEyes(path, face_cascade, eye_cascade, glasses_cascade)
 
-        offset = args['offset']
-        size = args['size']
-        cropped = CropFace(image, eye_left=eyeLeft, eye_right=eyeRight, offset_pct=(offset, offset),
-                           dest_sz=(size, size))
+            image = Image.open(path).convert('L')
 
-        cropped.save('ok_{}'.format(path))  # http://stackoverflow.com/q/2556108/2388501
+            offset = args['offset']
+            size = args['size']
+            cropped = CropFace(image, eye_left=eyeLeft, eye_right=eyeRight, offset_pct=(offset, offset),
+                               dest_sz=(size, size))
+
+            cropped.save('ok_{}'.format(path))  # http://stackoverflow.com/q/2556108/2388501
+    elif args['batch'] is not None:
+        raise
+    else:
+        ap.print_help()
+        exit()
+
 
 if __name__ == '__main__':
     run()

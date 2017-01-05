@@ -10,7 +10,7 @@ from FaceRecognising import FaceRecognising
 
 
 class CameraCapturing:
-    def __init__(self, resolution=(560, 315), resolution_calc=(256, 144), framerate=30.0):
+    def __init__(self, args, resolution=(560, 315), resolution_calc=(256, 144), framerate=30.0):
         ap = ArgumentParser()
         group = ap.add_mutually_exclusive_group()
         group.add_argument("-v", "--video", help="path to the video file")
