@@ -6,6 +6,7 @@ from imutils.video.pivideostream import PiVideoStream
 
 import FaceCascading
 import PeopleCascading
+from FaceRecognising import FaceRecognising
 
 
 class CameraCapturing:
@@ -24,6 +25,10 @@ class CameraCapturing:
         self.resolution_calc = resolution_calc
         self.resolution_calc_multiply = resolution[0] / resolution_calc[0]
         self.framerate = framerate
+
+        self.faceRecogniser = FaceRecognising()
+
+        self.recording = False
 
     def main(self):
         if self.video is None:
@@ -55,6 +60,10 @@ class CameraCapturing:
             # Of course, the error rate should be risen
             frameGray = cv2.cvtColor(cv2.resize(frame.copy(), self.resolution_calc), cv2.COLOR_BGR2GRAY)
 
+            # TODO: when face detected:
+            # TODO: * start recording
+            # TODO: * continue to detect faces for people tagging
+            # TODO: * start motion detection (till 2mins of no detected movement)
             # for every people detected in the frame blob, find the (only) face and check who they are
             for (xA, yA, xB, yB) in PeopleCascading.detect(frameGray):
                 cv2.rectangle(frame,
@@ -63,7 +72,13 @@ class CameraCapturing:
                               (int(xB * self.resolution_calc_multiply),
                                int(yB * self.resolution_calc_multiply)),
                               (0, 255, 0), 2)
-                FaceCascading.detect_face(frameGray)
+                # for (xA, yA, xB, yB) in rects:
+                #     imgFace = frame[xA:yA, xB:yB]
+                faces_frames = FaceCascading.detect_face(frameGray)
+                for imgFace in faces_frames:
+                    # what to do after you found a face?
+                    label, confidence = self.faceRecogniser.predict(imgFace)
+                    print("detected face of {} w/ confidence={}".format(label, confidence))
 
             # show the result of the detection and recognition
             cv2.imshow("main", frame)
