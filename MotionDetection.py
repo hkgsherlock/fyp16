@@ -11,7 +11,10 @@ class MotionDetection(object):
         self.boundingBoxPadding = boundingBoxPadding
         self.lastFrame = None
 
-    def putNewFrameAndCheck(self, frame, oldFrame=self.lastFrame):
+    def putNewFrameAndCheck(self, frame, oldFrame=None):
+        if oldFrame is None:
+            oldFrame = self.lastFrame
+
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         frameToLast = gray.copy()
@@ -51,4 +54,6 @@ class MotionDetection(object):
 
         boundingBoxesNew = non_max_suppression(np.array(boundingBoxes))
 
+        # for (x1, y1, x2, y2) in boundingBoxesNew:
+        #     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
         return boundingBoxesNew

@@ -150,7 +150,6 @@ def detectFaceThenEyes(path, faceCascade, eyeCascade, glassesCascade):
 
 def run():
     ap = argparse.ArgumentParser()
-    # TODO: group arguments for batch job on folder "./face/{name}/ok_{code}.*"
     gp = ap.add_mutually_exclusive_group()
     gp.add_argument("-b", "--batch", metavar='BATCH_PATH',
                     help='path of the batch job folder to be processed\n'

@@ -7,6 +7,8 @@ from imutils.video.pivideostream import PiVideoStream
 import FaceCascading
 import PeopleCascading
 from FaceRecognising import FaceRecognising
+from MotionDetection import MotionDetection
+from VideoRecorder import TaggingTimerVideoRecorder
 
 
 class CameraCapturing:
@@ -18,7 +20,7 @@ class CameraCapturing:
         ap.add_argument("-a", "--min-area", type=int, default=200, help="minimum area size")
         args = vars(ap.parse_args())
 
-        self.video = args.get("video", None)
+        self.videoSrc = args.get("video", None)
         self.usePiCam = args.get("picam", False)
 
         self.resolution = resolution
@@ -28,10 +30,11 @@ class CameraCapturing:
 
         self.faceRecogniser = FaceRecognising()
 
-        self.recording = False
+        self.videoRecorder = TaggingTimerVideoRecorder()
+        self.motionDetector = MotionDetection()
 
     def main(self):
-        if self.video is None:
+        if self.videoSrc is None:
             cam = cv2.VideoCapture(0)
             cam.set(cv2.CAP_PROP_FPS, self.framerate)
             time.sleep(0.25)
@@ -40,7 +43,7 @@ class CameraCapturing:
             picam = PiVideoStream(resolution=self.resolution, framerate=self.framerate)
             picam.start()
         else:
-            cam = cv2.VideoCapture(self.video)
+            cam = cv2.VideoCapture(self.videoSrc)
             fps = float(cam.get(cv2.CAP_PROP_FPS))
 
         print("FPS: {}".format(fps))
@@ -64,6 +67,9 @@ class CameraCapturing:
             # TODO: * start recording
             # TODO: * continue to detect faces for people tagging
             # TODO: * start motion detection (till 2mins of no detected movement)
+
+            foundPeople = []
+
             # for every people detected in the frame blob, find the (only) face and check who they are
             for (xA, yA, xB, yB) in PeopleCascading.detect(frameGray):
                 cv2.rectangle(frame,
@@ -71,17 +77,40 @@ class CameraCapturing:
                                int(yA * self.resolution_calc_multiply)),
                               (int(xB * self.resolution_calc_multiply),
                                int(yB * self.resolution_calc_multiply)),
-                              (0, 255, 0), 2)
-                # for (xA, yA, xB, yB) in rects:
-                #     imgFace = frame[xA:yA, xB:yB]
-                faces_frames = FaceCascading.detect_face(frameGray)
-                for imgFace in faces_frames:
+                              (255, 255, 0), 2)
+                faces_pos = FaceCascading.detect_face(frameGray)
+                for xC, yC, xD, yD in faces_pos:
+                    cv2.rectangle(frame,
+                                  (int(xC * self.resolution_calc_multiply),
+                                   int(yC * self.resolution_calc_multiply)),
+                                  (int(xD * self.resolution_calc_multiply),
+                                   int(yD * self.resolution_calc_multiply)),
+                                  (0, 255, 0), 2)
+                for imgFace in FaceCascading.detect_face_crop_frame(frameGray, faces_pos):
                     # what to do after you found a face?
                     label, confidence = self.faceRecogniser.predict(imgFace)
                     print("detected face of {} w/ confidence={}".format(label, confidence))
+                    foundPeople.append(label)
+                    self.videoRecorder.setSeeing()
+
+            # if the video recorder has been triggered to start,
+            # start the motion detector to check movement
+            # (not every frame has face)
+            if self.videoRecorder.isRecording():
+                moves = self.motionDetector.putNewFrameAndCheck(frame)
+                for (x1, y1, x2, y2) in moves:
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
+                    self.videoRecorder.setSeeing()
 
             # show the result of the detection and recognition
             cv2.imshow("main", frame)
+
+            # (BENNNNNNN) stop recording if time exceeds seconds active
+            if self.videoRecorder.isRecording() and time.time() - self.videoRecorder.getLastSeen() > 30.0:
+                self.videoRecorder.endWrite()
+            # else, if found someone, or already started, start/continue recording
+            elif len(foundPeople) > 0 or self.videoRecorder.isRecording():
+                self.videoRecorder.write(frame)
 
             # codes to wait to stay the image as 30fps
             waitMs = int((1 / fps - (time.time() - tFrameInit)) * 1000)
