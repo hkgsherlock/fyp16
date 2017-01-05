@@ -35,4 +35,6 @@ class FaceRecognising:
 
     def predict(self, image):
         labelId, confidence = self.model.predict(image)
+        if labelId == -1:
+            return -1, confidence
         return self.labels[labelId], confidence
