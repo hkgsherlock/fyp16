@@ -4,8 +4,8 @@ import time
 import cv2
 from imutils.video.pivideostream import PiVideoStream
 
-import FaceCascading
-import PeopleCascading
+from FaceCascading import FaceCascading
+from PeopleCascading import PeopleCascading
 from FaceRecognising import FaceRecognising
 from MotionDetection import MotionDetection
 from VideoRecorder import TaggingTimerVideoRecorder
@@ -32,6 +32,8 @@ class CameraCapturing:
 
         self.videoRecorder = TaggingTimerVideoRecorder()
         self.motionDetector = MotionDetection()
+        self.peopleCascading = PeopleCascading()
+        self.faceCascading = FaceCascading()
 
     def main(self):
         if self.videoSrc is None:
@@ -63,22 +65,22 @@ class CameraCapturing:
             # Of course, the error rate should be risen
             frameGray = cv2.cvtColor(cv2.resize(frame.copy(), self.resolution_calc), cv2.COLOR_BGR2GRAY)
 
-            # TODO: when face detected:
-            # TODO: * start recording
-            # TODO: * continue to detect faces for people tagging
-            # TODO: * start motion detection (till 2mins of no detected movement)
+            # when face detected:
+            # * start recording
+            # * continue to detect faces for people tagging
+            # * start motion detection (till 2mins of no detected movement)
 
             foundPeople = []
 
             # for every people detected in the frame blob, find the (only) face and check who they are
-            for (xA, yA, xB, yB) in PeopleCascading.detect(frameGray):
+            for (xA, yA, xB, yB) in self.peopleCascading.detect(frameGray):
                 cv2.rectangle(frame,
                               (int(xA * self.resolution_calc_multiply),
                                int(yA * self.resolution_calc_multiply)),
                               (int(xB * self.resolution_calc_multiply),
                                int(yB * self.resolution_calc_multiply)),
                               (255, 255, 0), 2)
-                faces_pos = FaceCascading.detect_face(frameGray)
+                faces_pos = self.faceCascading.detect_face(frameGray)
                 for xC, yC, xD, yD in faces_pos:
                     cv2.rectangle(frame,
                                   (int(xC * self.resolution_calc_multiply),
@@ -86,7 +88,7 @@ class CameraCapturing:
                                   (int(xD * self.resolution_calc_multiply),
                                    int(yD * self.resolution_calc_multiply)),
                                   (0, 255, 0), 2)
-                for imgFace in FaceCascading.detect_face_crop_frame(frameGray, faces_pos):
+                for imgFace in self.faceCascading.detect_face_crop_frame(frameGray, faces_pos):
                     # what to do after you found a face?
                     label, confidence = self.faceRecogniser.predict(imgFace)
                     print("detected face of {} w/ confidence={}".format(label, confidence))
