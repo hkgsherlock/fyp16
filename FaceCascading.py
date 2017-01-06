@@ -5,6 +5,7 @@ face_cascade = cv2.CascadeClassifier('lbpcascade_frontalface.xml')
 
 
 def detect_face(frame):
+    # TODO: make parameters be settable via ctor
     (rects, weights) = face_cascade.detectMultiScale(frame, 1.3, 5)
     return np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
 
