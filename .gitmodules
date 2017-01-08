@@ -1,0 +1,3 @@
+[submodule "brightpi"]
+	path = brightpi
+	url = git@github.com:jritter/brightpi.git
