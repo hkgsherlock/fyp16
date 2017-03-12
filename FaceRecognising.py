@@ -9,7 +9,7 @@ class FaceRecognising:
     def __init__(self, threshold=128):
         self.model = cv2.face.createLBPHFaceRecognizer(threshold=threshold)
         self.labels = []
-        self.prepare()
+        # self.prepare()
 
     def get_images_and_labels(self, path):
         images = []

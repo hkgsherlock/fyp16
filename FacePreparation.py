@@ -97,16 +97,23 @@ class FacePreparation:
 
     @staticmethod
     def detectFaceThenEyes(path, faceCascade, eyeCascade, glassesCascade):
-        image = cv2.imread(path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        print(path)
 
-        face, _ = faceCascade.detectMultiScale(
-            image,
+        image = cv2.imread(path)
+
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        face = faceCascade.detectMultiScale(
+            gray,
             scaleFactor=1.1,
             minNeighbors=5,
             minSize=(30, 30),
             flags=cv2.CASCADE_SCALE_IMAGE
         )
+
+        if len(face) == 0:
+            print("no detected faces")
+            exit(0)
 
         face = np.array([[x, y, x + w, y + h] for (x, y, w, h) in face])
         face = face[0]
@@ -115,39 +122,40 @@ class FacePreparation:
         x2 = face[2]
         y2 = face[3]
 
-        eyes, _ = eyeCascade.detectMultiScale(
-            image[x1:y1, x2:y2],
+        eyes = eyeCascade.detectMultiScale(
+            image[x1:x2, y1:y2],
             scaleFactor=1.1,
             minNeighbors=2,
-            minSize=(30, 30),
+            minSize=(6, 6),
             flags=cv2.CASCADE_SCALE_IMAGE
         )
         eyes = np.array([[x, y, x + w, y + h] for (x, y, w, h) in eyes])
 
-        eyeLeft = None
-        eyeRight = None
+        out_eye = []
 
-        if eyes.size == 2:
+        print("eyes len = {}".format(len(eyes)))
+
+        if len(eyes) >= 2:
             for (xA, yA, xB, yB) in eyes:
-                eyeLeft = [x1 + int(xA + xB / 2.0), y1 + int(yA + yB / 2.0)]
+                print("{}, {}, {}, {}".format(xA, yA, xB, yB))
+                out_eye.append([x1 + int(xA + xB / 2.0), y1 + int(yA + yB / 2.0)])
         else:
-            glass, _ = glassesCascade.detectMultiScale(
+            glass = glassesCascade.detectMultiScale(
                 image[x1:y1, x2:y2],
                 scaleFactor=1.1,
                 minNeighbors=2,
-                minSize=(30, 30),
+                minSize=(6, 6),
                 flags=cv2.CASCADE_SCALE_IMAGE)
-            if glass.size != 2:
+            if len(glass) != 2:
+                print("glass size 2 != {}".format(len(glass)))
                 exit()
             for (xA, yA, xB, yB) in glass:
                 eyeRight = [x1 + int(xA + xB / 2.0), y1 + int(yA + yB / 2.0)]
 
-        if eyeLeft[0] > eyeRight[0]:
-            swap = eyeLeft
-            eyeLeft = eyeRight
-            eyeRight = swap
+        if out_eye[0][0] > out_eye[1][0]:
+            return out_eye[1], out_eye[0]
 
-        return eyeLeft, eyeRight
+        return out_eye[0], out_eye[1]
 
     def run(self):
         ap = argparse.ArgumentParser()
@@ -175,7 +183,7 @@ class FacePreparation:
                 cropped = self.CropFace(image, eye_left=eyeLeft, eye_right=eyeRight, offset_pct=(offset, offset),
                                         dest_sz=(size, size))
 
-                cropped.save('ok_{}'.format(path))  # http://stackoverflow.com/q/2556108/2388501
+                cropped.save('{}_ok.jpg'.format(path))  # http://stackoverflow.com/q/2556108/2388501
         elif args['batch'] is not None:
             raise
         else:

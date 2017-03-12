@@ -8,7 +8,7 @@ class FaceCascading:
 
     def detect_face(self, frame):
         # TODO: make parameters be settable via ctor
-        (rects, weights) = self.face_cascade.detectMultiScale(frame, 1.3, 5)
+        rects = self.face_cascade.detectMultiScale(frame, 1.3, 5)
         return np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
 
     def detect_face_crop_frame(self, frame, pos=None):
