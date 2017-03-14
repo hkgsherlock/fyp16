@@ -37,10 +37,12 @@ from PIL import Image
 import argparse
 import cv2
 
+from imutils.object_detection import non_max_suppression
+
 
 class FacePreparation:
     def __init__(self):
-        self.face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
+        self.face_cascade = cv2.CascadeClassifier('lbpcascade_frontalface.xml')
         self.glasses_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml')
         self.eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
 
@@ -103,33 +105,45 @@ class FacePreparation:
 
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        face = faceCascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(30, 30),
-            flags=cv2.CASCADE_SCALE_IMAGE
-        )
+        face_coord = FacePreparation.detectFace(gray, faceCascade)
 
-        if len(face) == 0:
-            print("no detected faces")
-            exit(0)
+        if len(face_coord) == 0:
+            print("no detected faces, force full face eyes scan")
 
-        face = np.array([[x, y, x + w, y + h] for (x, y, w, h) in face])
-        face = face[0]
-        x1 = face[0]
-        y1 = face[1]
-        x2 = face[2]
-        y2 = face[3]
+            # workaround
+            hh, ww = gray.shape[:2]
+            xx = 0
+            yy = 0
+
+        # debug
+        drawFrame = image.copy()
+        for (xA, yA, xB, yB) in face_coord:
+            cv2.rectangle(drawFrame, (xA, yA), (xB, yB), (0, 0, 255), 2)
+            cv2.imshow("test", drawFrame)
+            cv2.waitKey()
+
+            xx, yy, ww, hh = face_coord[0]
+
+        # debug
+        # cv2.imshow("test", gray[yy:hh, xx:ww])
+        # cv2.waitKey()
 
         eyes = eyeCascade.detectMultiScale(
-            image[x1:x2, y1:y2],
+            gray[yy:hh, xx:ww],
             scaleFactor=1.1,
-            minNeighbors=2,
-            minSize=(6, 6),
+            minNeighbors=3,
+            minSize=(5, 5),
             flags=cv2.CASCADE_SCALE_IMAGE
         )
-        eyes = np.array([[x, y, x + w, y + h] for (x, y, w, h) in eyes])
+        eyes = np.array([[x + xx, y + yy, x + xx + w, y + yy + h] for (x, y, w, h) in eyes])
+
+        eyes = non_max_suppression(eyes, probs=None, overlapThresh=0.65)
+
+        # debug
+        for (xA, yA, xB, yB) in eyes:
+            cv2.rectangle(drawFrame, (xA, yA), (xB, yB), (0, 0, 255), 2)
+            cv2.imshow("test", drawFrame)
+            cv2.waitKey()
 
         out_eye = []
 
@@ -137,11 +151,16 @@ class FacePreparation:
 
         if len(eyes) >= 2:
             for (xA, yA, xB, yB) in eyes:
-                print("{}, {}, {}, {}".format(xA, yA, xB, yB))
-                out_eye.append([x1 + int(xA + xB / 2.0), y1 + int(yA + yB / 2.0)])
+                eyeXPos = int((xA + xB) / 2.0)
+                eyeYPos = int((yA + yB) / 2.0)
+
+                # debug print
+                print("{}, {}".format(eyeXPos, eyeYPos))
+
+                out_eye.append([eyeXPos, eyeYPos])
         else:
             glass = glassesCascade.detectMultiScale(
-                image[x1:y1, x2:y2],
+                image[xx:yy, ww:hh],
                 scaleFactor=1.1,
                 minNeighbors=2,
                 minSize=(6, 6),
@@ -150,12 +169,25 @@ class FacePreparation:
                 print("glass size 2 != {}".format(len(glass)))
                 exit()
             for (xA, yA, xB, yB) in glass:
-                eyeRight = [x1 + int(xA + xB / 2.0), y1 + int(yA + yB / 2.0)]
+                eyeRight = [int(xA + xB / 2.0), int(yA + yB / 2.0)]
 
         if out_eye[0][0] > out_eye[1][0]:
             return out_eye[1], out_eye[0]
 
         return out_eye[0], out_eye[1]
+
+    @staticmethod
+    def detectFace(img, faceCascade):
+        face = faceCascade.detectMultiScale(
+            img,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(30, 30),
+            flags=cv2.CASCADE_SCALE_IMAGE
+        )
+        face = np.array([[x, y, x + w, y + h] for (x, y, w, h) in face])
+        print(face)
+        return face
 
     def run(self):
         ap = argparse.ArgumentParser()
@@ -167,14 +199,23 @@ class FacePreparation:
         ap.add_argument("-o", "--offset", type=int, default=0.2,
                         help="percent of the image you want to keep next to the eyes")
         ap.add_argument("-s", "--size", type=int, default=200, help="width and height of the output image")
+        ap.add_argument("-e", "--eyes", metavar='EYES_COORD',
+                        help='position of eyes for custom cropping (format: xL,yL,xR,yR)\n'
+                             'for example:"100,129,143,128"')
         args = vars(ap.parse_args())
 
         print(args)
 
         if args['image'] is not None:
             for path in args['image']:
-                eyeLeft, eyeRight = self.detectFaceThenEyes(path, self.face_cascade, self.eye_cascade,
-                                                            self.glasses_cascade)
+                # custom eyes coordinations
+                if args['eyes'] is not None:
+                    eyesCoords = [int(x) for x in args['eyes'].split(",")]
+                    eyeLeft = eyesCoords[:2]
+                    eyeRight = eyesCoords[-2:]
+                else:
+                    eyeLeft, eyeRight = self.detectFaceThenEyes(path, self.face_cascade, self.eye_cascade,
+                                                                self.glasses_cascade)
 
                 image = Image.open(path).convert('L')
 
@@ -182,8 +223,8 @@ class FacePreparation:
                 size = args['size']
                 cropped = self.CropFace(image, eye_left=eyeLeft, eye_right=eyeRight, offset_pct=(offset, offset),
                                         dest_sz=(size, size))
-
-                cropped.save('{}_ok.jpg'.format(path))  # http://stackoverflow.com/q/2556108/2388501
+                newFileName = '.'.join(path.split('.')[:-1])
+                cropped.save('{}_ok.jpg'.format(newFileName))  # http://stackoverflow.com/q/2556108/2388501
         elif args['batch'] is not None:
             raise
         else:
