@@ -16,6 +16,7 @@ class CameraCapturing:
         group = ap.add_mutually_exclusive_group()
         group.add_argument("-v", "--video", help="path to the video file")
         group.add_argument("-p", "--picam", help="use Raspberry Pi Camera", action='store_true')
+        ap.add_argument("-r", "--rotate", help="rotate image by 180 deg", action='store_true')
         ap.add_argument("-a", "--min-area", type=int, default=200, help="minimum area size")
         args = vars(ap.parse_args())
 
@@ -26,6 +27,8 @@ class CameraCapturing:
         self.resolution_calc = resolution_calc
         self.resolution_calc_multiply = resolution[0] / resolution_calc[0]
         self.framerate = framerate
+
+        self.rotate180 = args.get("rotate", False)
 
         self.faceRecogniser = FaceRecognising()
 
@@ -59,6 +62,10 @@ class CameraCapturing:
                 frame = picam.read()
             else:
                 _, frame = cam.read()  # last one is frame data
+
+            if self.rotate180:
+                frame = cv2.flip(frame, -1)
+
             frame_resize = cv2.resize(frame, self.resolution)
 
             # We copy another frame with smaller resolution to make processing faster (a bit).

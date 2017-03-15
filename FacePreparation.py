@@ -189,6 +189,27 @@ class FacePreparation:
         print(face)
         return face
 
+    @staticmethod
+    def equalize(im):
+        layer = 1
+        pix = im.getpixel((0, 0))
+        if isinstance(pix, tuple):
+            layer = len(pix)
+
+        h = im.convert("L").histogram()
+        lut = []
+        for b in range(0, len(h), 256):
+            # step size
+            import operator
+            step = reduce(operator.add, h[b:b + 256]) / 255
+            # create equalization lookup table
+            n = 0
+            for i in range(256):
+                lut.append(n / step)
+                n = n + h[i + b]
+        # map image through lookup table
+        return im.point(lut * layer)
+
     def run(self):
         ap = argparse.ArgumentParser()
         gp = ap.add_mutually_exclusive_group()
@@ -217,7 +238,9 @@ class FacePreparation:
                     eyeLeft, eyeRight = self.detectFaceThenEyes(path, self.face_cascade, self.eye_cascade,
                                                                 self.glasses_cascade)
 
-                image = Image.open(path).convert('L')
+                image = Image.open(path)
+                image = image.convert('L')
+                image = self.equalize(image)
 
                 offset = args['offset']
                 size = args['size']
