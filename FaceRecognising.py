@@ -20,9 +20,9 @@ class FaceRecognising:
             dirFull = os.path.join(path, dir)
 
             for image_fname in [o for o in os.listdir(dirFull) if os.path.isfile(os.path.join(dirFull, o))]:
-                # TODO: remove in production
-                if not image_fname.split('.')[0].endswith('_ok'):
-                    continue
+                # # remove in production
+                # if not image_fname.split('.')[0].endswith('_ok'):
+                #     continue
                 image_path = os.path.join(path, dir, image_fname)
                 image_pil = Image.open(image_path).convert('L')
                 image = np.array(image_pil, 'uint8')

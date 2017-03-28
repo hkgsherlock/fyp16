@@ -32,6 +32,7 @@
 
 import sys, math
 
+import numpy
 import numpy as np
 from PIL import Image
 import argparse
@@ -42,7 +43,7 @@ from imutils.object_detection import non_max_suppression
 
 class FacePreparation:
     def __init__(self):
-        self.face_cascade = cv2.CascadeClassifier('lbpcascade_frontalface.xml')
+        self.face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
         self.glasses_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml')
         self.eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
 
@@ -76,18 +77,16 @@ class FacePreparation:
         # calculate offsets in original image
         offset_h = math.floor(float(offset_pct[0]) * dest_sz[0])
         offset_v = math.floor(float(offset_pct[1]) * dest_sz[1])
-        # get the direction
-        eye_direction = (eye_right[0] - eye_left[0], eye_right[1] - eye_left[1])
-        # calc rotation angle in radians
-        rotation = -math.atan2(float(eye_direction[1]), float(eye_direction[0]))
         # distance between them
         dist = self.Distance(eye_left, eye_right)
         # calculate the reference eye-width
         reference = dest_sz[0] - 2.0 * offset_h
         # scale factor
         scale = float(dist) / float(reference)
-        # rotate original around the left eye
-        image = self.ScaleRotateTranslate(image, center=eye_left, angle=rotation)
+
+        # rotate image by eyes positions
+        image = self.RotateFace(image, eye_left, eye_right)
+
         # crop the rotated image
         crop_xy = (eye_left[0] - scale * offset_h, eye_left[1] - scale * offset_v)
         crop_size = (dest_sz[0] * scale, dest_sz[1] * scale)
@@ -97,13 +96,62 @@ class FacePreparation:
         image = image.resize(dest_sz, Image.ANTIALIAS)
         return image
 
-    @staticmethod
-    def detectFaceThenEyes(path, faceCascade, eyeCascade, glassesCascade):
-        print(path)
+    def RotateFace(self, image, eye_left, eye_right, center=None):
+        if center is None:
+            center = eye_left
+        # get the direction
+        eye_direction = (eye_right[0] - eye_left[0], eye_right[1] - eye_left[1])
+        # calc rotation angle in radians
+        rotation = -math.atan2(float(eye_direction[1]), float(eye_direction[0]))
+        # rotate original around the left eye
+        return self.ScaleRotateTranslate(image, center=center, angle=rotation)
 
-        image = cv2.imread(path)
+    def cv2MatToPilIm(self, cv2Mat):
+        return Image.fromarray(cv2Mat)
 
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    def pilImToCv2Mat(self, pilIm):
+        return numpy.array(pilIm)
+
+    def eyesCheckFaceAgain(self, imgGray, eyes):
+        print("re-check") # TODO: debug
+        for i in range(0, len(eyes)):
+            for j in range(0, len(eyes)):
+                if i == j:
+                    continue
+                print("{},{},{},{}".format(eyes[i][0], eyes[i][1], eyes[j][0], eyes[j][1])) # TODO: debug
+                img = imgGray.copy()
+                height, width = img.shape
+                if self.Distance(eyes[i], eyes[j]) < width * .1:
+                    continue
+                # centerImg = [int(width / 2), int(height / 2)]
+                # cv2_im = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                # pil_im = Image.fromarray(cv2_im)
+                pil_im = self.cv2MatToPilIm(img)
+                pil_im = self.RotateFace(pil_im, eyes[i], eyes[j])
+                img = self.pilImToCv2Mat(pil_im)
+                # # Convert RGB to BGR
+                # img = img[:, :, ::-1].copy()
+                face_coord = self.detectFace(img, self.face_cascade)
+                # TODO: debug
+                imgDraw = img.copy()
+                cv2.rectangle(imgDraw, tuple(eyes[i]), tuple(eyes[j]), (0, 0, 255), 2)
+                for (x1, y1, x2, y2) in face_coord:
+                    cv2.rectangle(imgDraw, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                if len(face_coord) > 0:
+                    w = x2 - x1
+                    h = y2 - y1
+                    # TODO: remove debug
+                    cv2.imshow("rotate", imgDraw)
+                    cv2.waitKey()
+                    cv2.destroyWindow("rotate")
+                    redoImg = img[x1 - w / 2:x2 + w / 2, y1 - h / 2:y2 + h / 2]
+                    return self.detectFaceThenEyes(redoImg, self.face_cascade, self.eye_cascade, self.glasses_cascade)
+
+
+    def detectFaceThenEyes(self, gray, faceCascade, eyeCascade, glassesCascade):
+        # TODO: debug
+        cv2.imshow("test", gray)
+        cv2.waitKey()
 
         face_coord = FacePreparation.detectFace(gray, faceCascade)
 
@@ -116,23 +164,25 @@ class FacePreparation:
             yy = 0
 
         # debug
-        drawFrame = image.copy()
+        drawFrame = gray.copy()
         for (xA, yA, xB, yB) in face_coord:
             cv2.rectangle(drawFrame, (xA, yA), (xB, yB), (0, 0, 255), 2)
+            # TODO: debug
             cv2.imshow("test", drawFrame)
             cv2.waitKey()
-
             xx, yy, ww, hh = face_coord[0]
 
         # debug
         # cv2.imshow("test", gray[yy:hh, xx:ww])
         # cv2.waitKey()
 
+        eyesMinSize = int(max(ww, hh) * 0.05)
+        print("min eye size = " + str(eyesMinSize))  # TODO: debug
         eyes = eyeCascade.detectMultiScale(
-            gray[yy:hh, xx:ww],
+            gray[yy:int(hh * 0.6), xx:ww],
             scaleFactor=1.1,
-            minNeighbors=3,
-            minSize=(5, 5),
+            minNeighbors=9,
+            minSize=(eyesMinSize, eyesMinSize),
             flags=cv2.CASCADE_SCALE_IMAGE
         )
         eyes = np.array([[x + xx, y + yy, x + xx + w, y + yy + h] for (x, y, w, h) in eyes])
@@ -149,21 +199,22 @@ class FacePreparation:
 
         print("eyes len = {}".format(len(eyes)))
 
-        if len(eyes) >= 2:
-            for (xA, yA, xB, yB) in eyes:
-                eyeXPos = int((xA + xB) / 2.0)
-                eyeYPos = int((yA + yB) / 2.0)
+        for (xA, yA, xB, yB) in eyes:
+            eyeXPos = int((xA + xB) / 2.0)
+            eyeYPos = int((yA + yB) / 2.0)
 
-                # debug print
-                print("{}, {}".format(eyeXPos, eyeYPos))
+            # debug print
+            print("{}, {}".format(eyeXPos, eyeYPos))
 
-                out_eye.append([eyeXPos, eyeYPos])
-        else:
+            out_eye.append([eyeXPos, eyeYPos])
+
+        if len(out_eye) < 2:
+            out_eye = []
             glass = glassesCascade.detectMultiScale(
-                image[xx:yy, ww:hh],
+                gray[xx:yy, ww:hh],
                 scaleFactor=1.1,
-                minNeighbors=2,
-                minSize=(6, 6),
+                minNeighbors=3,
+                minSize=(eyesMinSize, eyesMinSize),
                 flags=cv2.CASCADE_SCALE_IMAGE)
             if len(glass) != 2:
                 print("glass size 2 != {}".format(len(glass)))
@@ -171,22 +222,28 @@ class FacePreparation:
             for (xA, yA, xB, yB) in glass:
                 eyeRight = [int(xA + xB / 2.0), int(yA + yB / 2.0)]
 
-        if out_eye[0][0] > out_eye[1][0]:
-            return out_eye[1], out_eye[0]
+        # check which pair of eyes are correct
+        if len(face_coord) == 0 and len(out_eye) != 2:
+            recheck = self.eyesCheckFaceAgain(gray, out_eye)
+            if recheck is not None:
+                return recheck
+            print("recheck face failed")
+            exit(1)
 
-        return out_eye[0], out_eye[1]
+        if out_eye[0][0] > out_eye[1][0]:
+            return gray, out_eye[1], out_eye[0]
+        return gray, out_eye[0], out_eye[1]
 
     @staticmethod
     def detectFace(img, faceCascade):
         face = faceCascade.detectMultiScale(
             img,
             scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(30, 30),
-            flags=cv2.CASCADE_SCALE_IMAGE
+            minNeighbors=3,
+            minSize=(5, 5)
+            # flags=cv2.CASCADE_SCALE_IMAGE
         )
         face = np.array([[x, y, x + w, y + h] for (x, y, w, h) in face])
-        print(face)
         return face
 
     @staticmethod
@@ -223,23 +280,40 @@ class FacePreparation:
         ap.add_argument("-e", "--eyes", metavar='EYES_COORD',
                         help='position of eyes for custom cropping (format: xL,yL,xR,yR)\n'
                              'for example:"100,129,143,128"')
+        ap.add_argument("-vo", "--verboseonly", action='store_true', help='only output the eye positions info')
         args = vars(ap.parse_args())
 
         print(args)
 
         if args['image'] is not None:
             for path in args['image']:
+                gray = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2GRAY)
+
+                height, width = gray.shape
+                if height > 900 and width > 900:
+                    if height > width:
+                        height = int(900.0 / width * height)
+                        width = 900
+                    else:
+                        width = int(900.0 / height * width)
+                        height = 900
+                    gray = cv2.resize(gray, (width, height))
+
                 # custom eyes coordinations
                 if args['eyes'] is not None:
                     eyesCoords = [int(x) for x in args['eyes'].split(",")]
                     eyeLeft = eyesCoords[:2]
                     eyeRight = eyesCoords[-2:]
                 else:
-                    eyeLeft, eyeRight = self.detectFaceThenEyes(path, self.face_cascade, self.eye_cascade,
-                                                                self.glasses_cascade)
+                    gray, eyeLeft, eyeRight = self.detectFaceThenEyes(
+                        gray, self.face_cascade, self.eye_cascade, self.glasses_cascade)
 
-                image = Image.open(path)
-                image = image.convert('L')
+                if args['verboseonly']:
+                    exit(0)
+
+                # image = Image.open(path)
+                # image = image.convert('L')
+                image = self.cv2MatToPilIm(gray)
                 image = self.equalize(image)
 
                 offset = args['offset']
