@@ -159,9 +159,9 @@ class FacePreparation:
             print("no detected faces, force full face eyes scan")
 
             # workaround
-            hh, ww = gray.shape[:2]
-            xx = 0
-            yy = 0
+            y2, x2 = gray.shape[:2]
+            x1 = 0
+            y1 = 0
 
         # debug
         drawFrame = gray.copy()
@@ -170,22 +170,22 @@ class FacePreparation:
             # TODO: debug
             cv2.imshow("test", drawFrame)
             cv2.waitKey()
-            xx, yy, ww, hh = face_coord[0]
+            x1, y1, x2, y2 = face_coord[0]
 
         # debug
-        # cv2.imshow("test", gray[yy:hh, xx:ww])
+        # cv2.imshow("test", gray[y1:y2, x1:x2])
         # cv2.waitKey()
 
-        eyesMinSize = int(max(ww, hh) * 0.05)
+        eyesMinSize = int(max(x2, y2) * 0.05)
         print("min eye size = " + str(eyesMinSize))  # TODO: debug
         eyes = eyeCascade.detectMultiScale(
-            gray[yy:int(hh * 0.6), xx:ww],
+            gray[y1:int(y2 * 0.6), x1:x2],
             scaleFactor=1.1,
             minNeighbors=9,
             minSize=(eyesMinSize, eyesMinSize),
             flags=cv2.CASCADE_SCALE_IMAGE
         )
-        eyes = np.array([[x + xx, y + yy, x + xx + w, y + yy + h] for (x, y, w, h) in eyes])
+        eyes = np.array([[x + x1, y + y1, x + x1 + w, y + y1 + h] for (x, y, w, h) in eyes])
 
         eyes = non_max_suppression(eyes, probs=None, overlapThresh=0.65)
 
@@ -211,7 +211,7 @@ class FacePreparation:
         if len(out_eye) < 2:
             out_eye = []
             glass = glassesCascade.detectMultiScale(
-                gray[xx:yy, ww:hh],
+                gray[y1:y2, x1:x2],
                 scaleFactor=1.1,
                 minNeighbors=3,
                 minSize=(eyesMinSize, eyesMinSize),

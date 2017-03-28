@@ -45,10 +45,11 @@ class FaceRecognising:
         labelId, confidence = self.model.predict(image)
         if labelId == -1:
             return -1, confidence
-        return self.labels[labelId], confidence
+        return self.getLabelFromId(labelId), confidence
 
     def getLabelFromId(self, index):
-        return self.labels[index]
+        return self.model.getLabelInfo(index)
+        # return self.labels[index]
 
     def save(self):
         if not os.path.exists("./rec_prof") or not os.path.isdir("./rec_prof"):

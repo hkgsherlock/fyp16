@@ -35,7 +35,7 @@ def detect_face(frame):
     (rects, weights) = face_cascade.detectMultiScale(frame, 1.3, 5)
     rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
     for (xA, yA, xB, yB) in rects:
-        imgFace = frame[xA:yA, xB:yB]
+        imgFace = frame[yA:yB, xA:xB]
         # what to do after you found a face?
 
 
@@ -88,7 +88,7 @@ while True:
                       (int(xA * 2.1875), int(yA * 2.1875)),
                       (int(xB * 2.1875), int(yB * 2.1875)),
                       (0, 255, 0), 2)
-        detect_face(frame[xA:yA, xB:yB])
+        detect_face(frame[yA:yB, xA:xB])
 
     # show the result of the detection and recognition
     cv2.imshow("main", frame)
