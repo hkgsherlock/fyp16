@@ -2,6 +2,8 @@ from argparse import ArgumentParser
 import time
 
 import cv2
+from imutils.video import FileVideoStream
+from imutils.video import FPS
 
 from FaceCascading import FaceCascading
 from PeopleCascading import PeopleCascading
@@ -11,7 +13,7 @@ from VideoRecorder import TaggingTimerVideoRecorder
 
 
 class CameraCapturing:
-    def __init__(self, resolution=(560, 315), resolution_calc=(256, 144), framerate=30.0):
+    def __init__(self, resolution=(854, 480), resolution_calc=(256, 144), framerate=30.0):
         ap = ArgumentParser()
         group = ap.add_mutually_exclusive_group()
         group.add_argument("-v", "--video", help="path to the video file")
@@ -38,18 +40,18 @@ class CameraCapturing:
         self.faceCascading = FaceCascading()
 
     def main(self):
-        if self.videoSrc is None:
+        if self.videoSrc is None:  # usual web cam
             cam = cv2.VideoCapture(0)
             cam.set(cv2.CAP_PROP_FPS, self.framerate)
-            time.sleep(0.25)
-            fps = 30.0
-        elif self.usePiCam:
+        elif self.usePiCam:  # raspberry pi camera module
             from imutils.video.pivideostream import PiVideoStream
             picam = PiVideoStream(resolution=self.resolution, framerate=self.framerate)
             picam.start()
-        else:
-            cam = cv2.VideoCapture(self.videoSrc)
-            fps = float(cam.get(cv2.CAP_PROP_FPS))
+            time.sleep(2.0)
+        else:  # video source
+            vid = FileVideoStream(self.videoSrc)
+            time.sleep(1.0)
+        fps = FPS().start()
 
         print("FPS: {}".format(fps))
 
@@ -57,11 +59,13 @@ class CameraCapturing:
 
         while True:
             tFrameInit = time.time()
-            if self.usePiCam:
+            if self.videoSrc is None:
+                _, frame = cam.read()  # last one is frame data
+            elif self.usePiCam:
                 # picam.update()
                 frame = picam.read()
             else:
-                _, frame = cam.read()  # last one is frame data
+                frame = vid.read()
 
             if self.rotate180:
                 frame = cv2.flip(frame, -1)
@@ -147,6 +151,14 @@ class CameraCapturing:
         if picam is not None:
             picam.stop()
             picam = None
+        if vid is not None:
+            vid.stop()
+
+        # debug
+        fps.stop()
+        print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+        print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+
         cv2.destroyAllWindows()
 
 

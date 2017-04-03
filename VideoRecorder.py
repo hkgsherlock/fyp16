@@ -5,7 +5,7 @@ import cv2
 
 def _createVideoWriter(filename, width=560, height=315, fps=30):
     return cv2.VideoWriter("{}.avi".format(filename),
-                           cv2.VideoWriter_fourcc(*'MJPG'),
+                           cv2.VideoWriter_fourcc(*'H264'),
                            fps,
                            (width, height))
 
@@ -19,7 +19,7 @@ class VideoRecorder:
         if self.outVideoWriter is None:
             self.videoFileName = datetime.now().strftime("%d%m%Y-%H%M%S")
             self.outVideoWriter = _createVideoWriter(filename=self.videoFileName,
-                                                     width=560, height=315, fps=30)
+                                                     width=854, height=480, fps=30)
         if not self.outVideoWriter.isOpened():
             print("video writer cannot be opened")
             raise
