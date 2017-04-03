@@ -73,7 +73,7 @@ class StreamingAndWebApi:
                 else:
                     frame = self.encode(self.frame_queue.get())
                 yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n\r\n')
 
         def putNewFrame(self, cv2Frame):
             self.frame_queue.put(cv2Frame)
