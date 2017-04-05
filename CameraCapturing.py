@@ -41,6 +41,8 @@ class CameraCapturing:
 
     def main(self):
         if self.videoSrc is None:  # usual web cam
+            # TODO: using `imutils` classes
+            # from imutils.video.webcamvideostream import WebcamVideoStream
             cam = cv2.VideoCapture(0)
             cam.set(cv2.CAP_PROP_FPS, self.framerate)
         elif self.usePiCam:  # raspberry pi camera module
@@ -49,6 +51,7 @@ class CameraCapturing:
             picam.start()
             time.sleep(2.0)
         else:  # video source
+            from imutils.video.filevideostream import FileVideoStream
             vid = FileVideoStream(self.videoSrc)
             time.sleep(1.0)
         fps = FPS().start()

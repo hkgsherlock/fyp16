@@ -113,12 +113,12 @@ class FacePreparation:
         return numpy.array(pilIm)
 
     def eyesCheckFaceAgain(self, imgGray, eyes):
-        print("re-check") # TODO: debug
+        print("re-check")  # TODO: debug
         for i in range(0, len(eyes)):
             for j in range(0, len(eyes)):
                 if i == j:
                     continue
-                print("{},{},{},{}".format(eyes[i][0], eyes[i][1], eyes[j][0], eyes[j][1])) # TODO: debug
+                print("{},{},{},{}".format(eyes[i][0], eyes[i][1], eyes[j][0], eyes[j][1]))  # TODO: debug
                 img = imgGray.copy()
                 height, width = img.shape
                 if self.Distance(eyes[i], eyes[j]) < width * .1:
@@ -146,7 +146,6 @@ class FacePreparation:
                     cv2.destroyWindow("rotate")
                     redoImg = img[x1 - w / 2:x2 + w / 2, y1 - h / 2:y2 + h / 2]
                     return self.detectFaceThenEyes(redoImg, self.face_cascade, self.eye_cascade, self.glasses_cascade)
-
 
     def detectFaceThenEyes(self, gray, faceCascade, eyeCascade, glassesCascade):
         # TODO: debug

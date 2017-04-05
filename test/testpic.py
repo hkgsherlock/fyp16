@@ -42,7 +42,9 @@ for imgP in files:
             height = 600
         im = cv2.resize(im, (width, height))
     g = cv2.cvtColor(im.copy(), cv2.COLOR_BGR2GRAY)
-    for x1, y1, x2, y2 in fc.detect_face(g):
+    detected_faces = fc.detect_face(g)
+    # print("detected faces: %d" % len(detected_faces))
+    for x1, y1, x2, y2 in detected_faces:
         # print("%d,%d,%d,%d" % (x1, y1, x2, y2))
         cv2.rectangle(im, (x1, y1), (x2, y2), (0, 0, 255), 5)
         dist = int((x2 - x1) * .05)
@@ -56,10 +58,12 @@ for imgP in files:
         #     # print("%d,%d,%d,%d" % (x1, y1, x2, y2))
         #     cv2.rectangle(im, (ex1 + x1, ey1 + x1), (ex2 + x1, ey2 + x1), (0, 255, 0), 5)
         name, confidence = fr.predict(face_g)
-        if confidence != -1:
-            text = "'%s': %.2f" % (name, confidence)
-            cv2.putText(im, text, (x1 + dist, y2 - dist),
-                        cv2.FONT_HERSHEY_SIMPLEX, .6, (0, 0, 255), 2)
+        if confidence == -1:
+            # print("cannot detect faces")
+            continue
+        text = "'%s': %.2f" % (name, confidence)
+        cv2.putText(im, text, (x1 + dist, y2 - dist),
+                    cv2.FONT_HERSHEY_SIMPLEX, .6, (0, 0, 255), 2)
     # cv2.imshow("t", im)
     # cv2.waitKey(1)
     cv2.imwrite("./test/output/%s.png" % '.'.join(os.path.basename(imgP).split('.')[:-1]), im)
