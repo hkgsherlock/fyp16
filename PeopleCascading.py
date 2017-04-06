@@ -9,10 +9,10 @@ class PeopleCascading:
         # get the default people detector
         self.hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
 
-    def detect(self, frameGray):
+    def detect(self, frameGray, padding=(8, 8)):
         # TODO: make parameters be settable via ctor
         # detect people in the image
-        (rects, weights) = self.hog.detectMultiScale(frameGray, winStride=(4, 4), padding=(8, 8), scale=1.05)
+        (rects, weights) = self.hog.detectMultiScale(frameGray, winStride=(4, 4), padding=padding, scale=1.03)
 
         # convert array type
         rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
