@@ -5,9 +5,9 @@ import cv2
 from imutils.video import FileVideoStream
 from imutils.video import FPS
 
-from FaceCascading import FaceCascading
-from PeopleCascading import PeopleCascading
-from FaceRecognising import FaceRecognising
+from FaceCascading import FaceCascadingOpencvHaar
+from BodyCascading import BodyCascading
+from FaceRecognising import FaceRecognisingOpencv
 from MotionDetection import MotionDetection
 from VideoRecorder import TaggingTimerVideoRecorder
 
@@ -32,12 +32,12 @@ class CameraCapturing:
 
         self.rotate180 = args.get("rotate", False)
 
-        self.faceRecogniser = FaceRecognising()
+        self.faceRecogniser = FaceRecognisingOpencv()
 
         self.videoRecorder = TaggingTimerVideoRecorder()
         self.motionDetector = MotionDetection()
-        self.peopleCascading = PeopleCascading()
-        self.faceCascading = FaceCascading()
+        self.peopleCascading = BodyCascading()
+        self.faceCascading = FaceCascadingOpencvHaar()
 
     def main(self):
         if self.videoSrc is None:  # usual web cam

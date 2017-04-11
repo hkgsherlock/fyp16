@@ -15,10 +15,10 @@ class TimeElapseCounter:
 
     def lap(self):
         if self.tStart is not None:
-            sec = (self.now() - self.tStart).total_seconds()
+            sec = float((self.now() - self.tStart).total_seconds())
         else:
             self.start()
-            sec = 0
+            sec = 0.0
         self.laps.append(sec)
         return sec
 
@@ -31,7 +31,7 @@ class TimeElapseCounter:
 
     def printLap(self):
         sec = self.lap()
-        print('perf: cost %d secs' % sec)
+        print('perf: cost %.4f secs' % sec)
 
     def printLaps(self):
-        print('perf: laps:\n%s' % ('\n'.join(['%s secs' % a for a in self.laps])))
+        print('perf: laps:\n%s' % ('\n'.join(['%4.f secs' % a for a in self.laps])))

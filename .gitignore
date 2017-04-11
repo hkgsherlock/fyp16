@@ -141,3 +141,7 @@ fabric.properties
 ref/
 room_cond0.mp4
 room_cond1.mp4
+/test/processing
+/test/output
+/test/resources
+/test/logs

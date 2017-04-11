@@ -2,7 +2,7 @@ import os
 
 import cv2
 
-from PeopleCascading import PeopleCascading
+from BodyCascading import BodyCascading
 
 import argparse
 
@@ -23,7 +23,7 @@ if args['batch'] is not None:
 else:
     files = args['img']
 
-pc = PeopleCascading()
+bc = BodyCascading()
 
 for imgP in files:
     print(imgP)
@@ -38,7 +38,7 @@ for imgP in files:
             height = 600
         im = cv2.resize(im, (width, height))
     g = cv2.cvtColor(im.copy(), cv2.COLOR_BGR2GRAY)
-    bb = pc.detect(g)
+    bb = bc.detect(g)
     # print("detected peds: %d" % len(bb))
     for x1, y1, x2, y2 in bb:
         cv2.rectangle(im, (x1, y1), (x2, y2), (0, 0, 255), 5)
