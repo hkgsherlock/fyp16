@@ -1,132 +1,73 @@
 import argparse
-import datetime
-import imutils
 import time
-import cv2
-from imutils.object_detection import non_max_suppression
-import numpy as np
 
-# ## DEPRECATED ## #
+import cv2
+
+from Frames import FrameLimiter, FpsCounter
+from MotionDetection import MotionDetection
+import imutils
+from imutils.video.fps import FPS
+
+from VideoRecorder import VideoRecorder, NoWaitVideoRecorder
+
+vid = None
+file = False
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-v", "--video", help="path to the video file")
+gp = ap.add_mutually_exclusive_group()
+gp.add_argument("-v", "--video", help="path to the video file")
+gp.add_argument("-p", "--picam", help="use Raspberry Pi Camera", action='store_true')
 ap.add_argument("-a", "--min-area", type=int, default=200, help="minimum area size")
 args = vars(ap.parse_args())
 
-if args.get("video", None) is None:
-    camera = cv2.VideoCapture(0)
-    camera.set(cv2.CAP_PROP_FPS, 30.0)
-    time.sleep(0.25)
-    fps = 30.0
-else:
-    camera = cv2.VideoCapture(args["video"])
-    fps = float(camera.get(cv2.CAP_PROP_FPS))
+if args['picam'] is True:
+    from imutils.video.pivideostream import PiVideoStream
 
-print("FPS: {}".format(fps))
+    vid = PiVideoStream((960, 720), 30)
+elif args['video'] is not None:
+    from imutils.video.filevideostream import FileVideoStream
+
+    vid = FileVideoStream(args['video'], queueSize=256)
+    file = True
+else:
+    from imutils.video.webcamvideostream import WebcamVideoStream
+
+    vid = WebcamVideoStream()
+time.sleep(2)
+vid.start()
 
 lastFrame = None
 outVideoWriter = None
-lastSeenOccupied = 0.0
+
+md = MotionDetection()
+vr = NoWaitVideoRecorder()
+fl = FrameLimiter()
+fps = FpsCounter()
 
 while True:
-    tFrameInit = time.time()
-    (grabbed, frame) = camera.read()
-    text = ""
-    timestamp = datetime.datetime.now().strftime("%A %d %B %Y %I:%M:%S%p")
-    timestampFn = datetime.datetime.now().strftime("%d%m%Y-%H%M%S")
-    if not grabbed:
-        break
-
-    # frame = imutils.resize(frame, width=560)
-    frame = cv2.resize(frame, (560, 315))
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    # gray = cv2.GaussianBlur(gray, (21, 21), 0)
-
-    frameToLast = gray.copy()
-
-    if lastFrame is None:
-        lastFrame = gray
-        continue
-
-    frameDelta = cv2.absdiff(lastFrame, gray)
-
-    # input, lower limit, upper limit,
-    thresh = cv2.threshold(frameDelta, 30, 255, cv2.THRESH_BINARY)[1]
-    thresh = cv2.dilate(thresh, None, iterations=2)
-
-    # for boundingboxes that are kind of overlapping, combine
-    strEl = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, strEl)
-
-    # v-- python2
-    # (cnts, _) = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    # python 3
-    cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
-
-    # for those contours create bounding boxes (basic)
-    boundingBoxes = []
-    bbMargin = 20
-
-    for c in cnts:
-        if cv2.contourArea(c) < args["min_area"]:
-            continue
-        (x, y, w, h) = cv2.boundingRect(c)
-        # tuning margin
-        xw = x + w + bbMargin
-        yh = y + h + bbMargin
-        x -= bbMargin
-        y -= bbMargin
-        boundingBoxes.append([x, y, xw, yh])
-        cv2.rectangle(frame, (x, y), (xw, yh), (0, 0, 255), 2)
-        text = "Has movement"
-        lastSeenOccupied = time.time()
-
-    # conqeur overlapped bounding boxes with non-maxima suppression
-    boundingBoxesNew = non_max_suppression(np.array(boundingBoxes))
-
-    for (x1, y1, x2, y2) in boundingBoxesNew:
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-
-    cv2.putText(frame, text, (10, 20),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-    cv2.putText(frame, '{} --> {}'.format(len(boundingBoxes), len(boundingBoxesNew)), (10, 40),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-    cv2.putText(frame, timestamp,
-                (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
-
-    if (time.time() - lastSeenOccupied < 10):  # hold for 10 secs
-        # if outVideoWriter is None:
-        #     outVideoWriter = cv2.VideoWriter("{}.avi".format(timestampFn), cv2.VideoWriter_fourcc(*'MJPG'), 30,
-        #                                      (560, 315))
-        # # print(frame)
-        # outVideoWriter.write(frame)
-        # move the video writing into another thread to reduce laggy feel of playing video
-        lastSeenOccupied = time.time()
-    else:
-        if (outVideoWriter is not None) & (time.time() - lastSeenOccupied > 10.0):
-            outVideoWriter.release()
-            outVideoWriter = None
-
-    lastFrame = frameToLast
-
-    cv2.imshow("main", frame)
-    cv2.imshow("Thresh", thresh)
-    cv2.imshow("Frame Delta", frameDelta)
-    # cv2.imshow("Sobel X+Y", sobelCombined)
-    # print("elapsed: {}".format(time.time() - tFrameInit))
-    # print("1/fps = {}".format(1/fps))
-    waitMs = int((1 / fps - (time.time() - tFrameInit)) * 1000)
-    if waitMs < 1:
-        waitMs = 1
-    key = cv2.waitKey(waitMs) & 0xFF  # wait for key or if nothing then cont loop
-
-    if key == ord("q"):
+    mat = vid.read()
+    mat = imutils.resize(mat, height=480)
+    bb = md.putNewFrameAndCheck(mat)
+    for (x1, y1, x2, y2) in bb:
+        cv2.rectangle(mat, (x1, y1), (x2, y2), (0, 0, 255), 2)
+        if len(bb) == 1:
+            w = x2 - x1
+            h = y2 - y1
+            cv2.putText(mat, "w = %d h = %d pix = %d" % (w, h, w * h), (x1 + 20, y1 + 20),
+                        cv2.FONT_HERSHEY_DUPLEX, .6, (0, 0, 255), 1)
+    fl.limitFps(30)
+    cv2.putText(mat, "fps = %.2f" % fps.actualFps(), (30, 30),
+                cv2.FONT_HERSHEY_DUPLEX, .6, (0, 192, 0), 1)
+    cv2.imshow("bbx", mat)
+    vr.write(mat, fileName="motion_test")
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord("q") or (file and not vid.more()):
         break
     elif key == ord("p"):
         while (cv2.waitKey(1) & 0xFF) != ord("p"):
+            if key == ord("q"):
+                break
             continue
-
-if outVideoWriter is not None:
-    outVideoWriter.release()
-camera.release()
+vid.stop()
+vr.endWrite()
 cv2.destroyAllWindows()

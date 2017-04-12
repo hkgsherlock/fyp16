@@ -15,7 +15,8 @@ class BodyCascading:
         (rects, weights) = self.body_cascade.detectMultiScale(frameGray, winStride=(4, 4), padding=padding, scale=1.03)
 
         # convert array type
-        rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
+        rects[:, 2:] = np.add(rects[:, :2], rects[:, 2:])  # (x, y, w, h) --> (x1, y1, x2, y2)
+        # rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
 
         # use non_max_suppression to merge unimportant boundingboxes
         rects = non_max_suppression(rects, probs=None, overlapThresh=0.65)
@@ -44,7 +45,8 @@ class BodyCascading:
         # hog
         # rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
         # haar
-        rects = np.array([[x - padding, y - padding, x + w + padding, y + h + padding] for (x, y, w, h) in rects])
+        rects = np.add(rects, np.array([-padding, -padding, padding, padding]))
+        # rects = np.array([[x - padding, y - padding, x + w + padding, y + h + padding] for (x, y, w, h) in rects])
 
         # use non_max_suppression to merge unimportant boundingboxes
         rects = non_max_suppression(rects, probs=None, overlapThresh=0.65)

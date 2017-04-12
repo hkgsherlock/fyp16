@@ -4,29 +4,35 @@ from imutils.object_detection import non_max_suppression
 
 
 class MotionDetection:
-    def __init__(self, thresholdLow=30, thresholdHigh=255, minAreaSize=10, boundingBoxPadding=20):
+    def __init__(self, thresholdLow=50, thresholdHigh=255, minAreaSize=1000, boundingBoxPadding=20, frameSpan=4):
+        self.frameSpan = frameSpan
         self.thresholdLow = thresholdLow
         self.thresholdHigh = thresholdHigh
         self.minAreaSize = minAreaSize
         self.boundingBoxPadding = boundingBoxPadding
-        self.lastFrame = None
+        from Queue import Queue
+        self.lastFrames = Queue()
 
     def putNewFrameAndCheck(self, frame, oldFrame=None):
-        if oldFrame is None:
-            oldFrame = self.lastFrame
-
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        frameToLast = gray.copy()
-
         if oldFrame is None:
-            oldFrame = frameToLast
+            if self.lastFrames.qsize() < self.frameSpan:
+                if self.lastFrames.empty():
+                    self.lastFrames.put(gray)
+                    return []
+                else:
+                    oldFrame = self.lastFrames.queue[0]  # peek
+            else:
+                oldFrame = self.lastFrames.get()
 
         frameDelta = cv2.absdiff(oldFrame, gray)
+        # from Debugger import DataView
+        # DataView.show_image(frameDelta)
 
         # input, lower limit, upper limit,
         thresh = cv2.threshold(frameDelta, self.thresholdLow, self.thresholdHigh, cv2.THRESH_BINARY)[1]
-        thresh = cv2.dilate(thresh, None, iterations=2)
+        thresh = cv2.dilate(thresh, None, iterations=4)
 
         # for boundingboxes that are kind of overlapping, combine
         # strEl = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
@@ -37,25 +43,24 @@ class MotionDetection:
         # python 3
         cnts = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
 
-        print(len(cnts))
-
         # for those contours create bounding boxes (basic)
-        boundingBoxes = []
+        bbRects = np.array([cv2.boundingRect(c) for c in cnts if cv2.contourArea(c) >= self.minAreaSize])
 
-        for c in cnts:
-            if cv2.contourArea(c) < self.minAreaSize:
-                continue
-            (x, y, w, h) = cv2.boundingRect(c)
-            # tuning margin
-            xw = x + w + self.boundingBoxPadding
-            yh = y + h + self.boundingBoxPadding
-            x -= self.boundingBoxPadding
-            y -= self.boundingBoxPadding
-            boundingBoxes.append([x, y, xw, yh])
+        if len(bbRects) > 0:
+            bbRects[:, 2:] = np.add(bbRects[:, :2], bbRects[:, 2:])  # (x, y, w, h) --> (x1, y1, x2, y2)
+            pad = self.boundingBoxPadding
+            bbRects = np.add(bbRects, np.array([-pad, -pad, pad, pad]))
+            # bbRects = non_max_suppression(np.array(bbRects))
 
-        # boundingBoxesNew = non_max_suppression(np.array(boundingBoxes))
-        boundingBoxesNew = boundingBoxes
+            bbRects = np.array([np.amin(bbRects[:, :2], axis=0),
+                                np.amax(bbRects[:, 2:], axis=0)]).reshape((-1, 4))
+            bbRects[bbRects < 0] = 0  # remove negative values
 
         # for (x1, y1, x2, y2) in boundingBoxesNew:
         #     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        return boundingBoxesNew
+
+        if oldFrame is not None:
+            self.lastFrames.put(gray)
+
+        # print(bbRects)
+        return bbRects

@@ -33,7 +33,8 @@ def prepare_faceRecognizer():
 
 def detect_face(frame):
     (rects, weights) = face_cascade.detectMultiScale(frame, 1.3, 5)
-    rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
+    rects[:, 2:] = np.add(rects[:, :2], rects[:, 2:])  # (x, y, w, h) --> (x1, y1, x2, y2)
+    # rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
     for (xA, yA, xB, yB) in rects:
         imgFace = frame[yA:yB, xA:xB]
         # what to do after you found a face?
@@ -79,7 +80,8 @@ while True:
     # for (x, y, w, h) in rects:
     #     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
 
-    rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
+    rects[:, 2:] = np.add(rects[:, :2], rects[:, 2:])  # (x, y, w, h) --> (x1, y1, x2, y2)
+    # rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
     rects = non_max_suppression(rects, probs=None, overlapThresh=0.65)
 
     # for every people detected in the frame blob, find the (only) face and check who they are
