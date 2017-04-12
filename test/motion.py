@@ -2,13 +2,12 @@ import argparse
 import time
 
 import cv2
-
-from Frames import FrameLimiter, FpsCounter
-from MotionDetection import MotionDetection
 import imutils
-from imutils.video.fps import FPS
 
-from VideoRecorder import VideoRecorder, NoWaitVideoRecorder
+from MotionDetection import MotionDetection
+from Performance.Performance import TimeElapseCounter
+from Performance.Frames import FrameLimiter, FpsCounter
+from VideoRecorder import NoWaitVideoRecorder
 
 vid = None
 file = False
@@ -43,6 +42,7 @@ md = MotionDetection()
 vr = NoWaitVideoRecorder()
 fl = FrameLimiter()
 fps = FpsCounter()
+lap = TimeElapseCounter()
 
 while True:
     mat = vid.read()
@@ -55,11 +55,14 @@ while True:
             h = y2 - y1
             cv2.putText(mat, "w = %d h = %d pix = %d" % (w, h, w * h), (x1 + 20, y1 + 20),
                         cv2.FONT_HERSHEY_DUPLEX, .6, (0, 0, 255), 1)
+            if lap.lap() > 5.0:
+                vr.endWrite()
+            lap.start()
+            vr.write(mat)
     fl.limitFps(30)
     cv2.putText(mat, "fps = %.2f" % fps.actualFps(), (30, 30),
                 cv2.FONT_HERSHEY_DUPLEX, .6, (0, 192, 0), 1)
     cv2.imshow("bbx", mat)
-    vr.write(mat, fileName="motion_test")
     key = cv2.waitKey(1) & 0xFF
     if key == ord("q") or (file and not vid.more()):
         break
