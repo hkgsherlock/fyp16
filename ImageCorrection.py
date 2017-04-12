@@ -4,6 +4,9 @@ from PIL import Image
 
 
 class ImageCorrection:
+    def __init__(self):
+        pass
+
     @staticmethod
     def equalize(cvMat):
         return ImageCorrection.pilImToCv2Mat(

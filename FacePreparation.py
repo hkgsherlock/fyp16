@@ -43,6 +43,9 @@ from ImageCorrection import ImageCorrection
 
 
 class FacePreparation:
+    def __init__(self):
+        pass
+
     @staticmethod
     def Distance(p1, p2):
         dx = p2[0] - p1[0]

@@ -2,6 +2,9 @@ import cv2
 
 
 class DataView:
+    def __init__(self):
+        pass
+
     @staticmethod
     def show_image(cv2mat, title=None):
         if title is None:

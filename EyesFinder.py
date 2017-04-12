@@ -4,6 +4,9 @@ from imutils import face_utils
 
 
 class EyesFinder:
+    def __init__(self):
+        pass
+
     predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 
     @classmethod
@@ -11,8 +14,8 @@ class EyesFinder:
         h, w = cv_gray.shape[:2]
         shape = cls.predictor(cv_gray, dlib.rectangle(0, 0, w, h))
         shape = face_utils.shape_to_np(shape)
-        l = EyesFinder.average_points(shape[36:42])
-        r = EyesFinder.average_points(shape[42:48])
+        l = tuple(EyesFinder.average_points(shape[36:42]))
+        r = tuple(EyesFinder.average_points(shape[42:48]))
         return l, r
 
     @staticmethod
