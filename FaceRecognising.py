@@ -46,7 +46,7 @@ class FaceRecognisingOpencv:
         image = cv2.resize(image, (200, 200))
         labelId, confidence = self.__model.predict(image)
         if labelId == -1:
-            return -1, confidence
+            return -1, -1.0
         return self.getLabelFromId(labelId), confidence
 
     def getLabelFromId(self, index):

@@ -5,7 +5,7 @@ import imutils
 
 from FaceCascading import FaceCascadingDlib
 from FaceRecognising import FaceRecognisingOpencv
-from PerformanceCounter import TimeElapseCounter
+from Performance import TimeElapseCounter
 from ImageCorrection import ImageCorrection
 
 import argparse

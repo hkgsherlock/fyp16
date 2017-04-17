@@ -14,13 +14,16 @@ class TimeElapseCounter:
         print('perf: start lap')
 
     def lap(self):
-        if self.tStart is not None:
+        if self.is_started():
             sec = float((self.now() - self.tStart).total_seconds())
         else:
             self.start()
             sec = 0.0
         self.laps.append(sec)
         return sec
+
+    def is_started(self):
+        return self.tStart is not None
 
     @staticmethod
     def now():

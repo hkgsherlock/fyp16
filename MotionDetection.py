@@ -1,6 +1,37 @@
+from threading import Thread
+
 import cv2
 import numpy as np
 from imutils.object_detection import non_max_suppression
+from Queue import Queue
+
+from Debugger import DataView
+
+
+class NoWaitMotionDetection:
+    def __init__(self, thresholdLow=50, thresholdHigh=255, minAreaSize=1000, boundingBoxPadding=20, frameSpan=4):
+        self.__md = MotionDetection(thresholdLow=thresholdLow,
+                                    thresholdHigh=thresholdHigh,
+                                    minAreaSize=minAreaSize,
+                                    boundingBoxPadding=boundingBoxPadding,
+                                    frameSpan=frameSpan)
+        self.reading = []
+        self.__q_frame = Queue()
+        self.__t = Thread(target=self.__t_run)
+        self.__t.daemon = True
+        self.__t.start()
+        self.__i = 0
+
+    def putNewFrameAndCheck(self, frame):
+        self.__q_frame.put(frame, block=False)
+        # print(self.reading)
+        return self.reading
+
+    def __t_run(self):
+        while True:
+            if not self.__q_frame.empty():
+                f = self.__q_frame.get()
+                self.reading = self.__md.putNewFrameAndCheck(f)
 
 
 class MotionDetection:
@@ -10,7 +41,6 @@ class MotionDetection:
         self.thresholdHigh = thresholdHigh
         self.minAreaSize = minAreaSize
         self.boundingBoxPadding = boundingBoxPadding
-        from Queue import Queue
         self.lastFrames = Queue()
 
     def putNewFrameAndCheck(self, frame, oldFrame=None):
@@ -28,7 +58,7 @@ class MotionDetection:
 
         frameDelta = cv2.absdiff(oldFrame, gray)
         # from Debugger import DataView
-        # DataView.show_image(frameDelta)
+        # DataView.show_image_nowait(frameDelta, "delta")
 
         # input, lower limit, upper limit,
         thresh = cv2.threshold(frameDelta, self.thresholdLow, self.thresholdHigh, cv2.THRESH_BINARY)[1]
@@ -45,6 +75,7 @@ class MotionDetection:
 
         # for those contours create bounding boxes (basic)
         bbRects = np.array([cv2.boundingRect(c) for c in cnts if cv2.contourArea(c) >= self.minAreaSize])
+        # print(bbRects)
 
         if len(bbRects) > 0:
             bbRects[:, 2:] = np.add(bbRects[:, :2], bbRects[:, 2:])  # (x, y, w, h) --> (x1, y1, x2, y2)
@@ -52,6 +83,7 @@ class MotionDetection:
             bbRects = np.add(bbRects, np.array([-pad, -pad, pad, pad]))
             # bbRects = non_max_suppression(np.array(bbRects))
 
+            # print(bbRects)
             bbRects = np.array([np.amin(bbRects[:, :2], axis=0),
                                 np.amax(bbRects[:, 2:], axis=0)]).reshape((-1, 4))
             bbRects[bbRects < 0] = 0  # remove negative values
