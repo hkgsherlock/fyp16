@@ -2,17 +2,6 @@ import cv2
 import numpy as np
 
 
-class FaceCascading:
-    def __init(self, method=FaceCascadingDlib):
-        self.fc = method()
-
-    def detect_face(self, frame):
-        return self.fc.detect_face(frame)
-
-    def detect_face_crop_frame(self, frame, pos=None):
-        return self.fc.detect_face_crop_frame(frame, pos)
-
-
 class FaceCascadingOpencvHaar:
     def __init__(self):
         self.face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
