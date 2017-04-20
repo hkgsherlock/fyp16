@@ -8,6 +8,7 @@ from PIL import Image
 
 class FaceRecognisingOpencv:
     def __init__(self, threshold=128.0, createMethod=cv2.face.createLBPHFaceRecognizer, prepareImmediately=True):
+        self.__threshold = threshold
         self.__model = createMethod(threshold=threshold)
         self.__labels = []
         if prepareImmediately:
@@ -45,7 +46,7 @@ class FaceRecognisingOpencv:
     def predict(self, image):
         image = cv2.resize(image, (200, 200))
         labelId, confidence = self.__model.predict(image)
-        if labelId == -1:
+        if labelId == -1 or confidence > self.__threshold:
             return -1, -1.0
         return self.getLabelFromId(labelId), confidence
 

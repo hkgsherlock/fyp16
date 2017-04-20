@@ -12,7 +12,7 @@ class FaceCascadingOpencvHaar:
         rects = self.face_cascade.detectMultiScale(
             frame,
             scaleFactor=1.1,
-            minNeighbors=9,
+            minNeighbors=3,
             minSize=(faceSizeMin, faceSizeMin),
             flags=cv2.CASCADE_SCALE_IMAGE
         )
@@ -34,7 +34,7 @@ class FaceCascadingOpencvLbp:
         rects = self.face_cascade.detectMultiScale(
             frame,
             scaleFactor=1.1,
-            minNeighbors=9,
+            minNeighbors=3,
             minSize=(faceSizeMin, faceSizeMin),
             flags=cv2.CASCADE_SCALE_IMAGE
         )
@@ -61,10 +61,14 @@ class FaceCascadingDlib:
         from imutils import face_utils
         for (i, rect) in enumerate(dlib_rects):
             (x, y, w, h) = face_utils.rect_to_bb(rect)
+            x = max(x, 0)
+            y = max(y, 0)
+            w = max(w, 0)
+            h = max(h, 0)
             cv_rects.append((x, y, w, h))
         return cv_rects
 
     def detect_face_crop_frame(self, frame, pos=None):
         if pos is None:
             pos = self.detect_face(frame)
-        return [frame[yA:yB, xA:xB] for (xA, yA, xB, yB) in pos]
+        return [frame[yA:yB, xA:xB] for (xA, yA, xB, yB) in pos if yB - yA > 0 and xB - xA > 0]

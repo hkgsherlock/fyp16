@@ -3,9 +3,9 @@ import os
 import cv2
 import imutils
 
-from FaceCascading import FaceCascadingDlib
+from FaceCascading import FaceCascadingOpencvHaar, FaceCascadingOpencvLbp
 from FaceRecognising import FaceRecognisingOpencv
-from Performance import TimeElapseCounter
+from Performance.Performance import TimeElapseCounter
 from ImageCorrection import ImageCorrection
 
 import argparse
@@ -17,7 +17,7 @@ def run():
     gp.add_argument("-b", "--batch", metavar='BATCH_PATH',
                     help='path of the batch job folder to be processed\n'
                          'for example:"./face/{name}/ok_{code}.*"')
-    ap.add_argument("-r", "--resize", type=int, default=400, help="resize processing image to")
+    ap.add_argument("-r", "--resize", type=int, default=240, help="resize processing image to")
     gp.add_argument("-i", "--img", metavar='IMAGES', nargs='*', help='image to be processed')
     args = vars(ap.parse_args())
 
@@ -32,7 +32,7 @@ def run():
 
     resize = float(args['resize'])
 
-    fc = FaceCascadingDlib()
+    fc = FaceCascadingOpencvLbp()
     fr = FaceRecognisingOpencv()
     perf = TimeElapseCounter()
 

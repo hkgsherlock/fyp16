@@ -9,7 +9,7 @@ from Performance.Frames import FrameLimiter
 
 
 class Flag:
-    def __init__(self, defVal=False):
+    def __init__(self, defVal=None):
         self.value = defVal
 
 
@@ -71,14 +71,15 @@ class NoWaitVideoRecorder:
         fps = FpsCounter()
         fl = FrameLimiter()
         lastFrame = None
-        while not endFlag.value:
+
+        while not (endFlag.value and q.empty()):
             if not pauseFlag.value:
                 if not q.empty():
                     lastFrame = q.get()
                 if lastFrame is not None:
                     vr.write(lastFrame, self.fileName)
-                fl.limitFps(self.__fps)
-                print("writer fps: %.2f fps" % fps.actualFps())
+                # fl.limitFps(self.__fps)
+                # print("writer fps: %.2f fps" % fps.actualFps())
         print("ending")
         vr.endWrite()
 
@@ -87,7 +88,7 @@ class VideoRecorder:
     @staticmethod
     def __createVideoWriter(filename, width=640, height=360, fps=30):
         return cv2.VideoWriter("%s.avi" % filename,
-                               cv2.VideoWriter_fourcc(*'X264'),
+                               cv2.VideoWriter_fourcc(*'MJPG'),
                                fps,
                                (width, height))
 

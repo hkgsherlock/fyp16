@@ -44,7 +44,9 @@ class MotionDetection:
         self.lastFrames = Queue()
 
     def putNewFrameAndCheck(self, frame, oldFrame=None):
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = frame
+        if len(gray.shape) != 2:  # not gray
+            gray = cv2.cvtColor(gray, cv2.COLOR_BGR2GRAY)
 
         if oldFrame is None:
             if self.lastFrames.qsize() < self.frameSpan:
@@ -62,7 +64,7 @@ class MotionDetection:
 
         # input, lower limit, upper limit,
         thresh = cv2.threshold(frameDelta, self.thresholdLow, self.thresholdHigh, cv2.THRESH_BINARY)[1]
-        thresh = cv2.dilate(thresh, None, iterations=4)
+        thresh = cv2.dilate(thresh, None, iterations=2)
 
         # for boundingboxes that are kind of overlapping, combine
         # strEl = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
