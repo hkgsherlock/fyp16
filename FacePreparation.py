@@ -33,6 +33,8 @@
 import argparse
 import math
 import os
+from multiprocessing import Process
+from threading import Thread
 
 import cv2
 from PIL import Image
@@ -115,24 +117,7 @@ class FacePreparationDlib:
     def __init__(self):
         pass
 
-    def run(self):
-        ap = argparse.ArgumentParser()
-        gp = ap.add_mutually_exclusive_group()
-        gp.add_argument("-b", "--batch", metavar='BATCH_PATH',
-                        help='path of the batch job folder to be processed\n'
-                             'for example:"./face/{name}/ok_{code}.*"')
-        gp.add_argument("-i", "--image", metavar='img', nargs='+', help='path of the image(s) to be processed')
-        ap.add_argument("-o", "--offset", type=float, default=0.2,
-                        help="percent of the image you want to keep next to the eyes")
-        ap.add_argument("-s", "--size", type=int, default=200, help="width and height of the output image")
-        ap.add_argument("-e", "--eyes", metavar='EYES_COORD',
-                        help='position of eyes for custom cropping (format: xL,yL,xR,yR)\n'
-                             'for example:"100,129,143,128"\n'
-                             '(for -i only)')
-        ap.add_argument("-ff", "--fullface", action='store_true', help='use full face to find eyes')
-        ap.add_argument("-vo", "--verboseonly", action='store_true', help='only output the eye positions info')
-        args = vars(ap.parse_args())
-
+    def run(self, args):
         print(args)
 
         eyes = args['eyes']
@@ -158,7 +143,8 @@ class FacePreparationDlib:
             ap.print_help()
             exit()
 
-    def __doReadFromFilePath(self, path, offset=0.2, size=200, eyes=None, verboseOnly=False, fullface=False):
+    def __doReadFromFilePath(self, path, offset=0.2, size=200, eyes=None,
+                             verboseOnly=False, fullface=False, output_folder='face_who'):
         gray = cv2.imread(path)
         if len(gray.shape) > 2:  # color
             gray = cv2.cvtColor(gray, cv2.COLOR_BGR2GRAY)
@@ -194,7 +180,7 @@ class FacePreparationDlib:
                     exit(1)
                 else:
                     gray_face = gray_face[0].copy()
-            gray_face = ImageCorrection.equalize(gray_face)
+            gray_face = ImageCorrection.equalize_pil_from_cvmat(gray_face)
             eyeLeft, eyeRight = self.eyesFinder.do_find(gray_face)
 
         if verboseOnly:
@@ -203,10 +189,37 @@ class FacePreparationDlib:
         cropped = FacePreparation.CropFace(ImageCorrection.cv2MatToPilIm(gray_face),
                                            eye_left=eyeLeft, eye_right=eyeRight,
                                            offset_pct=(offset, offset), dest_sz=(size, size))
-        path = "./face_who/%s.jpg" % '.'.join(os.path.basename(path).split('.')[:-1])
+        path = "./%s/%s.jpg" % (output_folder, '.'.join(os.path.basename(path).split('.')[:-1]))
         print(path)
         cropped.save(path)
 
+    def run_no_wait(self, path, folder):
+        t = Process(target=self.run, args={
+            {
+                'image': path,
+                'offset': 0.2,
+                'size': 200,
+                'folder': folder
+            }
+        })
+        t.daemon = False
+        t.start()
 
 if __name__ == '__main__':
-    FacePreparationDlib().run()
+    ap = argparse.ArgumentParser()
+    gp = ap.add_mutually_exclusive_group()
+    gp.add_argument("-b", "--batch", metavar='BATCH_PATH',
+                    help='path of the batch job folder to be processed\n'
+                         'for example:"./face/{name}/ok_{code}.*"')
+    gp.add_argument("-i", "--image", metavar='img', nargs='+', help='path of the image(s) to be processed')
+    ap.add_argument("-o", "--offset", type=float, default=0.2,
+                    help="percent of the image you want to keep next to the eyes")
+    ap.add_argument("-s", "--size", type=int, default=200, help="width and height of the output image")
+    ap.add_argument("-e", "--eyes", metavar='EYES_COORD',
+                    help='position of eyes for custom cropping (format: xL,yL,xR,yR)\n'
+                         'for example:"100,129,143,128"\n'
+                         '(for -i only)')
+    ap.add_argument("-ff", "--fullface", action='store_true', help='use full face to find eyes')
+    ap.add_argument("-vo", "--verboseonly", action='store_true', help='only output the eye positions info')
+    args = vars(ap.parse_args())
+    FacePreparationDlib().run(args)

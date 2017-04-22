@@ -8,12 +8,16 @@ class ImageCorrection:
         pass
 
     @staticmethod
-    def equalize(cvMat):
+    def equalize_pil_from_cvmat(cvMat):
         return ImageCorrection.pilImToCv2Mat(
             ImageCorrection.equalize_pil(
                 ImageCorrection.cv2MatToPilIm(cvMat)
             )
         )
+
+    @staticmethod
+    def equalize_cv2(cvMat):
+        return cv2.equalizeHist(cvMat)
 
     @staticmethod
     def equalize_pil(im):

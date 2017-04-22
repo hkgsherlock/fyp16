@@ -116,7 +116,7 @@ def filterImg(g):
     perf = TimeElapseCounter()
     perf.start()
     print("filter img")
-    g = ImageCorrection.equalize(g)
+    g = ImageCorrection.equalize_pil_from_cvmat(g)
     g = ImageCorrection.claheCv2Mat(g)
     # g = ImageCorrection.sharpenKernelCv2Mat(g)
     g = ImageCorrection.sharpenGaussianCv2Mat(g)

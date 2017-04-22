@@ -120,3 +120,30 @@ class DatabaseStorage:
             'record_height': result[1],
             'record_framerate': result[2]
         }
+
+    @classmethod
+    def set_record_face(cls, datetime, faceid):
+        con = cls.get_connection()
+        cursor = con.cursor()
+        cursor.execute('INSERT INTO record_face (datetime, face_id) VALUES (?, ?)', [datetime, faceid])
+        con.commit()
+        con.close()
+        return cursor.rowcount == 0
+
+    @classmethod
+    def set_record(cls, datetime, img, dropbox_url):
+        con = cls.get_connection()
+        cursor = con.cursor()
+        cursor.execute('INSERT INTO records (datetime, img, "dropbox-url") VALUES (?, ?, ?)', [datetime, img, dropbox_url])
+        con.commit()
+        con.close()
+        return cursor.rowcount == 0
+
+    @classmethod
+    def get_faces_categories(cls):
+        con = cls.get_connection()
+        cursor = con.cursor()
+        result = cursor.execute('SELECT id, category FROM faces').fetchall()
+        con.close()
+        result = dict(result)
+        return result

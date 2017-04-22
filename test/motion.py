@@ -5,7 +5,7 @@ import cv2
 import imutils
 import numpy as np
 
-from FaceCascading import FaceCascadingOpencvHaar
+from FaceCascading import FaceCascadingOpencvHaar, FaceCascadingOpencvLbp
 from FaceRecognising import FaceRecognisingOpencv
 from ImageCorrection import ImageCorrection
 from MotionDetection import MotionDetection, NoWaitMotionDetection
@@ -15,17 +15,13 @@ from VideoRecorder import NoWaitVideoRecorder
 
 
 def filterImg(g):
-    perf = TimeElapseCounter()
-    perf.start()
-    print("filter img")
-    g = ImageCorrection.equalize(g)
-    # g = ImageCorrection.claheCv2Mat(g)
-    # g = ImageCorrection.sharpenKernelCv2Mat(g)
+    lap = TimeElapseCounter()
+    lap.start()
+    g = ImageCorrection.equalize_cv2(g)
     g = ImageCorrection.sharpenGaussianCv2Mat(g)
     g = ImageCorrection.brightness(g, 25)
     g = ImageCorrection.contrast(g, 1.25)
-    # g = ImageCorrection.normalizeCv2Mat(g)
-    perf.printLap()
+    # print('filter img %.4f secs' % lap.lap())
     return g
 
 vid = None
@@ -83,33 +79,16 @@ try:
         bb = md.putNewFrameAndCheck(bbMat)
         # bb = np.array(np.round(np.multiply(bb, 480./144.)), 'int32')
         for (x1, y1, x2, y2) in bb:
-            cv2.rectangle(mat, (x1, y1), (x2, y2), (0, 0, 255), 2)
-            w = x2 - x1
-            h = y2 - y1
-            bbxText = "w = %d h = %d pix = %d" % (w, h, w * h)
-            print(bbxText)
-            cv2.putText(mat, bbxText, (x1 + 20, y1 + 20), cv2.FONT_HERSHEY_DUPLEX, .6, (0, 0, 255), 1)
-
             y2 = y1 + (y2 - y1) / 3
-
             trim_for_face = bbMat[y1:y2, x1:x2]
             trim_for_face = filterImg(trim_for_face)
-            # cv2.imwrite("test/processing/cut_frame/%d.jpg" % i, trim_for_face)
-            i += 1
-            perf_lap = TimeElapseCounter()
-            perf_lap.start()
-            faces_bb = face_detect.detect_face(trim_for_face)
-            print("face detection used %.2f secs" % perf_lap.lap())
-            for (xa, ya, xb, yb) in faces_bb:
-                xa = xa + x1
-                xb = xb + x1
-                ya = ya + y1
-                yb = yb + y1
-                cv2.rectangle(mat, (xa, ya), (xb, yb), (0, 192, 0), 2)
-            faces = face_detect.detect_face_crop_frame(trim_for_face, faces_bb)
+            lap = TimeElapseCounter()
+            lap.start()
+            faces = face_detect.detect_face_crop_frame(trim_for_face)
+            # print('face detect %.4f secs' % lap.lap())
             for f in faces:
                 who, conf = face_recognise.predict(f)
-                print("%s, %.2f" % (who, conf))
+                print("!!!!!! ==>  %s, %.2f" % (who, conf))
 
             lap.start()
         if lap.is_started() and (0 < lap.lap() > 5):

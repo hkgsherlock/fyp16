@@ -9,7 +9,10 @@ from PIL import Image
 class FaceRecognisingOpencv:
     def __init__(self, threshold=128.0, createMethod=cv2.face.createLBPHFaceRecognizer, prepareImmediately=True):
         self.__threshold = threshold
-        self.__model = createMethod(threshold=threshold)
+        if threshold is None:
+            self.__model = createMethod()
+        else:
+            self.__model = createMethod(threshold=threshold)
         self.__labels = []
         if prepareImmediately:
             self.prepare()

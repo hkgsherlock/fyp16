@@ -17,11 +17,12 @@ import sqlite3
 import os
 import datetime
 from DatabaseStorage import DatabaseStorage
-from jose import jwt
 
 # TODO: put into another thread to work
 # TODO: sessions
 from werkzeug.utils import secure_filename
+
+from FacePreparation import FacePreparationDlib
 
 
 def crossdomain(origin=None, methods=None, headers=None,
@@ -68,11 +69,13 @@ def crossdomain(origin=None, methods=None, headers=None,
 
 
 class StreamingAndWebApi:
-    def __init__(self):
+    def __init__(self, debug=False):
         self.app = Flask(__name__)
         self.WebApiView.register(self.app, route_base='api')
         # self.WebApiView.register(self.app, route_base='/', subdomain='api')
-        self.app.run(debug=True)
+        self.app.run(host='0.0.0.0', debug=debug)
+        if debug:
+            print('debug mode')
 
     class WebApiView(FlaskView):
         UPLOAD_TEMP_FOLDER = '/upload/temp'
@@ -141,7 +144,7 @@ class StreamingAndWebApi:
                                       'AS [record_face] '
                                       'ON faces.id = record_face.face_id').fetchall():
                 face_id = row[0]
-                category = row[1]
+                category = row[1].lower()
                 file_dates = map(lambda x: os.path.getmtime(x[0]), os.walk("face/%s" % face_id))
                 if len(file_dates) == 0:
                     last_update = None
@@ -167,6 +170,30 @@ class StreamingAndWebApi:
 
         # face
 
+        @route('/face', methods=['POST'])
+        @crossdomain(origin='*')
+        def new_face_from_name(self):
+            payload = request.get_json(force=True, silent=True)
+            if payload is None:
+                return json.dumps({'status': 400, 'message': 'No payload supplied'}), 400, {
+                    'ContentType': 'application/json'}
+
+            for key in ['id', 'category']:
+                if key not in payload:
+                    return json.dumps({'status': 400, 'message': 'Invalid payload supplied'}), 400, {
+                        'ContentType': 'application/json'}
+            con = DatabaseStorage.get_connection()
+            cursor = con.cursor()
+            cursor.execute('INSERT INTO faces (id, category) VALUES (?, ?)', [payload['id'], payload['category'].lower()])
+            con.commit()
+            con.close()
+            path = 'face/%s' % payload['id']
+            os.mkdir(path)
+            if cursor.rowcount < 1 or cursor.rowcount > 1:
+                return json.dumps({'status': 500, 'message': 'Cannot insert into database.'}), 200, {
+                    'ContentType': 'application/json'}
+            return json.dumps({'status': 200, 'success': True}), 200, {'ContentType': 'application/json'}
+
         @route('/face/<name>', methods=['GET'])
         @crossdomain(origin='*')
         def get_face_from_name(self, name):
@@ -188,18 +215,21 @@ class StreamingAndWebApi:
                 return json.dumps({'status': 404, 'message': 'Requested profile not found.'}), 200, {
                     'ContentType': 'application/json'}
             face_id = result[0]
-            category = result[1]
+            category = result[1].lower()
             last_detect = result[2]
-            file_dates = map(lambda x: os.path.getmtime(x[0]), os.walk("face/%s" % face_id))
-            last_update = datetime.datetime.utcfromtimestamp(max(file_dates))
             faces = []
-            for img_path in os.listdir('face/%s' % face_id):
-                if not os.path.isfile(os.path.join('face/%s' % face_id, img_path)):
-                    continue
-                faces.append({
-                    'filename': img_path,
-                    'url': '%s/faces/%s' % (request.base_url, img_path)
-                })
+            file_dates = map(lambda x: os.path.getmtime(x[0]), os.walk("face/%s" % face_id))
+            if len(file_dates) > 0:
+                last_update = datetime.datetime.utcfromtimestamp(max(file_dates))
+                for img_path in os.listdir('face/%s' % face_id):
+                    if not os.path.isfile(os.path.join('face/%s' % face_id, img_path)):
+                        continue
+                    faces.append({
+                        'filename': img_path,
+                        'url': '%s/faces/%s' % (request.base_url, img_path)
+                    })
+            else:
+                last_update = None
 
             detects = []
             for d in detects_dt:
@@ -224,7 +254,7 @@ class StreamingAndWebApi:
 
             return jsonify(ret)
 
-        @route('/face/<name>', methods=['PUT'])
+        @route('/face/<name>', methods=['POST'])
         @crossdomain(origin='*')
         def update_face_from_name(self, name):
             payload = request.get_json(force=True, silent=True)
@@ -240,8 +270,16 @@ class StreamingAndWebApi:
             con = DatabaseStorage.get_connection()
             cursor = con.cursor()
             cursor.execute('UPDATE faces SET id=?, category=? '
-                           'WHERE id=?', [payload['id'], payload['category'], name])
+                           'WHERE id=?', [payload['id'], payload['category'].lower(), name])
+            con.commit()
             con.close()
+            oldPath = 'face/%s' % payload['id']
+            newPath = 'face/%s' % payload['id']
+            if oldPath != newPath:
+                if os.path.isdir(oldPath):
+                    os.rename(oldPath, newPath)
+                else:
+                    os.mkdir(newPath)
             if cursor.rowcount < 1:
                 return json.dumps({'status': 404, 'message': 'Profile not found.'}), 404, {
                     'ContentType': 'application/json'}
@@ -269,7 +307,7 @@ class StreamingAndWebApi:
 
             try:
                 import shutil
-                shutil.rmtree(path)
+                shutil.rmtree(path, ignore_errors=True)
             except OSError as e:
                 return json.dumps({'status': 500, 'message': e.strerror}), 500, {
                     'ContentType': 'application/json'}
@@ -320,8 +358,12 @@ class StreamingAndWebApi:
                 return json.dumps({'status': 406, 'message': 'File type not accepted (jpg/jpeg/gif/png).'}), 406, {
                     'ContentType': 'application/json'}
             filename = secure_filename(file.filename)
-            path = 'face/%s' % name
-            file.save(os.path.join(path, filename))
+            path = 'uploads/%s' % name
+            if not os.path.isdir(path):
+                os.mkdir(path)
+            path = os.path.join(path, filename)
+            file.save(path)
+            FacePreparationDlib().run_no_wait(path, 'face/%s' % name)
             return json.dumps({'status': 200, 'success': True}), 200, {'ContentType': 'application/json'}
 
         # face_list
@@ -369,12 +411,12 @@ class StreamingAndWebApi:
                                      'LEFT JOIN faces ON faces.id = record_face.face_id '
                                      'WHERE datetime=?', [datetime]).fetchall():
                 face_id = pe[0]
-                category = pe[1]
+                category = pe[1].lower()
                 img_path = [f for f in os.listdir('face/%s' % face_id)
                             if os.path.isfile(os.path.join('face/%s' % face_id, f))][0]
                 people.append({
                     'face_id': face_id,
-                    'category': category,
+                    'category': category.lower(),
                     'img_url': '%s/face/%s/faces/%s' % (request.base_url.replace('/record/' + date_time, ''),
                                                         face_id, img_path)
                 })
@@ -403,6 +445,7 @@ class StreamingAndWebApi:
                 return json.dumps({'status': 401, 'message': 'Invalid login details.'}), 401, {
                     'ContentType': 'application/json'}
 
+            from jose import jwt
             token = jwt.encode({'login': True}, 'secret', algorithm='HS256')
             return jsonify({
                 'success': True,
@@ -430,7 +473,8 @@ class StreamingAndWebApi:
             con = DatabaseStorage.get_connection()
             cursor = con.cursor()
             cursor.execute('UPDATE settings SET uname=?, pwd=?',
-                           [payload['uname'].strip(), payload['pwd'].strip()]).fetchone()
+                           [payload['uname'].strip(), payload['pwd'].strip()])
+            con.commit()
             con.close()
             if cursor.rowcount < 1 or cursor.rowcount > 1:
                 return json.dumps({'status': 500, 'message': 'Unexpected database state.'}), 200, {
@@ -512,7 +556,8 @@ class StreamingAndWebApi:
                         'ContentType': 'application/json'}
             con = DatabaseStorage.get_connection()
             cursor = con.cursor()
-            cursor.execute('UPDATE settings SET dropbox_token=?', [payload['token'].strip()]).fetchone()
+            cursor.execute('UPDATE settings SET dropbox_token=?', [payload['token'].strip()])
+            con.commit()
             con.close()
             if cursor.rowcount < 1 or cursor.rowcount > 1:
                 return json.dumps({'status': 500, 'message': 'Unexpected database state.'}), 200, {
@@ -563,7 +608,7 @@ class StreamingAndWebApi:
             if GmailIntegration.STORING_FLOW is None:
                 return json.dumps({'status': 400, 'message': 'You have to get the token in step 1 first '
                                                              'in order to make the flow works.'}), 400, {
-                    'ContentType': 'application/json'}
+                           'ContentType': 'application/json'}
 
             payload = request.get_json(force=True, silent=True)
             if payload is None:
@@ -577,7 +622,7 @@ class StreamingAndWebApi:
             try:
                 from oauth2client.file import Storage
                 credentials = GmailIntegration.STORING_FLOW.step2_exchange(code=payload['code'].strip())
-                store = Storage(GmailIntegration.CLIENT_SECRET_FILE)
+                store = Storage(GmailIntegration.TOKEN_FILE_PATH)
                 store.put(credentials)
                 # credentials.set_store(store)
                 return json.dumps({'status': 200, 'success': True}), 200, {'ContentType': 'application/json'}
@@ -599,7 +644,8 @@ class StreamingAndWebApi:
             con = DatabaseStorage.get_connection()
             cursor = con.cursor()
             cursor.execute('UPDATE settings SET gmail_url_hostname=?',
-                           [payload['gmail_url_hostname'].strip()]).fetchone()
+                           [payload['gmail_url_hostname'].strip()])
+            con.commit()
             con.close()
             if cursor.rowcount < 1 or cursor.rowcount > 1:
                 return json.dumps({'status': 500, 'message': 'Unexpected database state.'}), 200, {
@@ -640,7 +686,8 @@ class StreamingAndWebApi:
                             payload['capture_height'],
                             payload['capture_frame_rate'],
                             payload['process_width'],
-                            payload['process_height']]).fetchone()
+                            payload['process_height']])
+            con.commit()
             con.close()
             if cursor.rowcount < 1 or cursor.rowcount > 1:
                 return json.dumps({'status': 500, 'message': 'Unexpected database state.'}), 200, {
@@ -681,7 +728,8 @@ class StreamingAndWebApi:
                            [payload['threshold_low'],
                             payload['minimum_area'],
                             payload['bounding_box_padding'],
-                            payload['frame_span']]).fetchone()
+                            payload['frame_span']])
+            con.commit()
             con.close()
             if cursor.rowcount < 1 or cursor.rowcount > 1:
                 return json.dumps({'status': 500, 'message': 'Unexpected database state.'}), 200, {
@@ -712,7 +760,8 @@ class StreamingAndWebApi:
                         'ContentType': 'application/json'}
             con = DatabaseStorage.get_connection()
             cursor = con.cursor()
-            cursor.execute('UPDATE settings SET face_method=?', [payload['face_method']]).fetchone()
+            cursor.execute('UPDATE settings SET face_method=?', [payload['face_method']])
+            con.commit()
             con.close()
             if cursor.rowcount < 1 or cursor.rowcount > 1:
                 return json.dumps({'status': 500, 'message': 'Unexpected database state.'}), 200, {
@@ -743,7 +792,8 @@ class StreamingAndWebApi:
                         'ContentType': 'application/json'}
             con = DatabaseStorage.get_connection()
             cursor = con.cursor()
-            cursor.execute('UPDATE settings SET facerec_method=?', [payload['facerec_method']]).fetchone()
+            cursor.execute('UPDATE settings SET facerec_method=?', [payload['facerec_method']])
+            con.commit()
             con.close()
             if cursor.rowcount < 1 or cursor.rowcount > 1:
                 return json.dumps({'status': 500, 'message': 'Unexpected database state.'}), 200, {
@@ -779,7 +829,8 @@ class StreamingAndWebApi:
             cursor.execute('UPDATE settings SET record_width=?, record_height=?, record_framerate=?',
                            [payload['record_width'],
                             payload['record_height'],
-                            payload['record_framerate']]).fetchone()
+                            payload['record_framerate']])
+            con.commit()
             con.close()
             if cursor.rowcount < 1 or cursor.rowcount > 1:
                 return json.dumps({'status': 500, 'message': 'Unexpected database state.'}), 200, {
@@ -792,7 +843,7 @@ class StreamingAndWebApi:
         @crossdomain(origin='*')
         def disk_usage(self):
             from sys import platform
-            if (platform == "linux" or platform == "linux2"):
+            if platform == "linux" or platform == "linux2":
                 import subprocess
                 records_disks = subprocess.check_output(
                     ['df', '-m', '-x', 'tmpfs', '-x', 'devtmpfs', '--total']).strip().split('\n')
@@ -830,9 +881,17 @@ class StreamingAndWebApi:
         @route('/set/reinit', methods=['POST'])
         @crossdomain(origin='*')
         def set_reinit_backend(self):
-            pass  # TODO: set_reinit_backend
-            return json.dumps({'status': 500, 'message': 'Not implemented.'}), 200, {
-                'ContentType': 'application/json'}
+            func = request.environ.get('werkzeug.server.shutdown')
+            if func is None:
+                from ServiceEntryPoint import ServiceEntryPoint
+                ServiceEntryPoint.API_REQUEST_REINIT = True
+                raise ServerShutdown
+            else:
+                from ServiceEntryPoint import ServiceEntryPoint
+                ServiceEntryPoint.API_REQUEST_REINIT = True
+                func()
+                return json.dumps({'status': 200, 'message': 'success'}), 200, {
+                    'ContentType': 'application/json'}
 
         # reboot
 
@@ -854,7 +913,7 @@ class StreamingAndWebApi:
 
         @route('/trigger/alarm', methods=['POST'])
         @crossdomain(origin='*')
-        def set_reinit_backend(self):
+        def set_trigger_alarm(self):
             payload = request.get_json(force=True, silent=True)
             if payload is None:
                 return json.dumps({'status': 400, 'message': 'No payload supplied'}), 400, {
@@ -867,9 +926,35 @@ class StreamingAndWebApi:
             # buzzing is boolean
             buzzing = bool(payload['buzzing'])
             from Alarming import Alarming
-            Alarming.get_instance().set_buzzing(buzzing)
+            Alarming.set_buzzing(buzzing)
 
             return json.dumps({'status': 200, 'success': True}), 200, {'ContentType': 'application/json'}
+
+        # set/ir-filter
+
+        @route('/set/ir-filter', methods=['get'])
+        @crossdomain(origin='*')
+        def get_ir_filter(self):
+            from InfraRedLightFilter import InfraRedLightFilter
+            return jsonify({
+                'state': InfraRedLightFilter.get_state()
+            })
+
+        # @route('/dropbox_thumbnail', methods=['GET'])
+        # @crossdomain(origin='*')
+        # def video_feed(self):
+        #     payload = request.get_json(force=True, silent=True)
+        #     if payload is None:
+        #         return json.dumps({'status': 400, 'message': 'No payload supplied'}), 400, {
+        #             'ContentType': 'application/json'}
+        #     for key in ['path']:
+        #         if key not in payload:
+        #             return json.dumps({'status': 400, 'message': 'Invalid payload supplied'}), 400, {
+        #                 'ContentType': 'application/json'}
+        #     from DropboxIntegration import DropboxIntegration
+        #     meta, r = DropboxIntegration.get_dropbox_client().files_get_thumbnail(payload['path'])
+        #     r.raw.decode_content = True
+        #     return Response(r.raw, mimetype=r.headers['content-type'])
 
 
 class StreamingBuffer:
@@ -891,3 +976,7 @@ class StreamingBuffer:
 
     def putNewFrame(self, cv2Frame):
         self.frame_queue.put(cv2Frame)
+
+
+class ServerShutdown(Exception):
+    pass
